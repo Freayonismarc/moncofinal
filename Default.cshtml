@@ -1,0 +1,185 @@
+﻿@{
+    Page.Title = "Home";
+
+    // Using database helper
+    var db = Database.Open("tierone");
+    var products = db.Query("SELECT * FROM PRODUCTS").ToList();
+    
+    // This variable will be used to show random featured products
+    // var featured = products[new Random().Next(products.Count)];
+    
+    // Temporary: showing reviews
+    Random random = new Random();
+    var randomizer = 5;
+
+    // Handles redirection of user cart checkout
+    if (WebSecurity.IsAuthenticated && Request.QueryString["ContinueCheckout"] != null) {
+        Response.Redirect("~/CheckoutCart?CartId="+Request.QueryString["ContinueCheckout"].AsInt());
+    }
+}
+  <div>
+    <div class="row">
+      <div class="col-md-9">
+        <div class="row carousel-holder">
+          <!--<div class="col-md-12">-->
+            <div id="carousel-example-generic" class="carousel slide" data-ride="carousel">
+              <ol class="carousel-indicators">
+                <li data-target="#carousel-example-generic" data-slide-to="0" class="active"></li>
+                <li data-target="#carousel-example-generic" data-slide-to="1"></li>
+                <li data-target="#carousel-example-generic" data-slide-to="2"></li>
+                <li data-target="#carousel-example-generic" data-slide-to="3"></li>
+              </ol>
+            <div class="carousel-inner">
+              <div class="item active" style="max-height: 477px">
+                <img class="slide-image" src="~/Uploaded/ads/Sample@(random.Next(1,5)).jpg" alt="1">
+                <div class="carousel-caption">
+                  <h3>Poetry and music are very good friends.</h3>
+                  <p>Like mommies and daddies and strawberries and cream - they go together.</p>
+                </div>
+              </div>
+              <div class="item" style="max-height: 477px">
+                <img class="slide-image" src="~/Uploaded/ads/Sample@(random.Next(1,5)).jpg" alt="2">
+                <div class="carousel-caption">
+                  <h3>Right now I just want to chill for a while.</h3>
+                  <p>Take a hiatus from all the craziness. To clean my house, see my family. Just see some movies and pick some strawberries.</p>
+                </div>
+              </div>
+              <div class="item" style="max-height: 477px">
+                <img class="slide-image" src="~/Uploaded/ads/Sample@(random.Next(1,5)).jpg" alt="3">
+                <div class="carousel-caption">
+                  <h3>She had two lips like strawberries, and the seeds gave her kisses texture. </h3>
+                  <p>I preferred kissing her over two scoops of vanilla ice cream.</p>
+                </div>
+              </div>
+              <div class="item" style="max-height: 477px">
+                <img class="slide-image" src="~/Uploaded/ads/Sample@(random.Next(1,5)).jpg" alt="3">
+                <div class="carousel-caption">
+                  <h3>I love surprises</h3>
+                  <p>champagne and strawberries, all that pampering, romantic stuff. Guys ought to know how to pamper their women properly.</p>
+                </div>
+              </div>
+            </div>
+            <a class="left carousel-control" href="#carousel-example-generic" data-slide="prev">
+              <span class="glyphicon glyphicon-chevron-left"></span>
+            </a>
+            <a class="right carousel-control" href="#carousel-example-generic" data-slide="next">
+              <span class="glyphicon glyphicon-chevron-right"></span>
+            </a>
+          </div>
+                    <!--</div>-->
+        </div>
+
+        <div class="row">
+                @if(products.Count == 0) {
+                    // Message for administrator
+                    if(WebSecurity.IsAuthenticated && Roles.IsUserInRole("admin")) {
+                    <div class="col-md-12">
+                        <div class="jumbotron">
+                        <h3>Hello, @WebSecurity.CurrentUserName!</h3>
+                        <p>As of yet we don't have any product to list which is not good for us, start adding now by click the button below.</p>
+                        <a href="~/Admin/AddProduct" class="btn btn-primary btn-lg" role="button">Learn more</a>
+                        </div>
+                    </div>
+                    // Message non-administrator
+                    } else {
+                    <div class="col-md-12">
+                        <div class="alert alert-warning">
+                            <h4>Welcome to Monco MDC, We are currently in the midst of migrating our product & services online.</h4>
+                            <p>Please have patience while we upload our product information, Thank you for always patronizing the Monco MDC</p>
+                        </div>
+                    </div>                        
+                    }
+                }
+                @foreach (var row in products) {
+                   
+                   var images = db.QuerySingle("SELECT FileTitle, FileExtension FROM Products_Image WHERE ForProductId=@0", row.Id);
+
+                <div class="col-sm-4 col-lg-4 col-md-4">
+                    <div class="thumbnail">
+
+                            <div class="thumbnail-container">
+                            @if(images == null) { 
+                                <img src="http://placehold.it/252x130" alt="Sample Image" />
+                            } else {
+                                <a class="image-popup-no-margins" href="~/Uploaded/@images.FileTitle@images.FileExtension">
+                                <img class="image-popup-no-margins" src="~/Uploaded/@images.FileTitle@images.FileExtension" alt="@images.FileTitle + @images.FileExtension" />
+                                </a>
+                            }
+                            </div>
+
+                            <div class="caption">
+                                    @{
+                                        
+                                    /* Handles long product name and display it nicely without cutting the text */
+                                    string productName = row.Name;
+
+                                    if (productName.Length > 30) {
+                                        productName = productName.Substring(0, 30);
+                                        int index = productName.LastIndexOf(' ');
+                                        productName = productName.Substring(0, index) + "...";
+                                    }
+                                    
+                                    }
+                                <h4><a href="~/order/@row.Id">@productName</a>
+                                </h4>
+                                <p class="text-justify">@row.Description</p>
+                            </div>
+
+                            <!--<div class="ratings">
+                                <p class="pull-right">@(randomizer + random.Next(5,50)) reviews</p>
+                                    <p>
+                                        <span class="fa fa-star"></span>
+                                        <span class="fa fa-star"></span>
+                                        <span class="fa fa-star"></span>
+                                        <span class="fa fa-star"></span>
+                                        <span class="fa fach-star"></span>
+                                    </p>
+                            </div>-->
+                            <div class="row">
+                                <div class="col-sm-7">
+                                    <a class="btn btn-primary btn-sm" href="~/order/@row.Id" title="Order @row.Name">
+                                    <span class="fa fa-shopping-cart fa-lg"></span>&nbsp;
+                                    Buy Now</a>
+                                </div>
+                                <div class="col-sm-5">
+                                    <h4 class="text-right">@string.Format("Php "+"{0:n}", row.Price)</h4>
+                                </div>
+                            </div>
+
+                    </div>
+                </div>
+                }
+                    </div>
+
+                 </div>
+                    <div class="col-lg-3">
+                <a class="twitter-timeline" href="https://twitter.com/FinalMonco" data-widget-id="651685308703055872">Tweets by FinalMonco</a>
+<script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0],p=/^http:/.test(d.location)?'http':'https';if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src=p+"://platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}}(document,"script","twitter-wjs");</script>
+            </div>
+                <div class="col-lg-3">
+                    <a href="https://www.facebook.com/moncofinal?fref=ts">
+                        <img src="/img/facebook-logo.png" alt="Facebook Logo here" style="width:50px;height:50px;border:0;">
+                    </a>
+                    <p>LIKE US!</p>
+                    </div>
+            <div class="facebook">
+                <script>
+                  window.fbAsyncInit = function() {
+                    FB.init({
+                      appId      : '1706209886276032',
+                      xfbml      : true,
+                      version    : 'v2.5'
+                    });
+                  };
+
+                  (function(d, s, id){
+                     var js, fjs = d.getElementsByTagName(s)[0];
+                     if (d.getElementById(id)) {return;}
+                     js = d.createElement(s); js.id = id;
+                     js.src = "//connect.facebook.net/en_US/sdk.js";
+                     fjs.parentNode.insertBefore(js, fjs);
+                   }(document, 'script', 'facebook-jssdk'));
+                </script>
+            </div>
+            </div> <!-- end of /.col-md-9 -->
+        </div> <!-- end of main row class -->

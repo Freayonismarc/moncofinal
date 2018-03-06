@@ -1,0 +1,422 @@
+﻿@{
+    Page.Title = "Checkout";
+
+    if(Request.Cookies["cart"] == null) {
+        Response.Redirect("~/");
+    }
+
+    var db = Database.Open("tierone");
+    
+    /* 
+    2. Final checkout checking | One click away to complete purchase
+    //  - User already has define: delivery address
+    //  - User cart is not empty and exist in the database
+    //  - User has picked method of payment
+    */
+
+    bool completeCheck = false;
+
+    if ( !Request.QueryString["completeCheckout"].IsEmpty() && !Request.QueryString["cartId"].IsEmpty() && !Request.QueryString["toUserId"].IsEmpty() && !Request.QueryString["PM"].IsEmpty() ) {
+            
+        completeCheck = Convert.ToBoolean(Request.QueryString["completeCheckout"]);
+        var paymentMethodString = Convert.ToString(Request.QueryString["PM"]);
+
+        /* Redirect to ReviewCart page if completecheckout is false, which usually happens when end-user manipulate it. */
+        if (!completeCheck) { Response.Redirect("~/ReviewCart?cannotCompleteCheckout"); }
+
+        /* Next check if current user in session is uses the correct id and isauthenticated, else redirect back to EeviewCart page */
+        if ( WebSecurity.IsAuthenticated && Convert.ToInt32(Request.QueryString["toUserId"]) != WebSecurity.CurrentUserId ) { 
+            
+            Response.Redirect("~/ReviewCart?errorOnUserId"); 
+
+        }
+
+        /* Use 1.2 checking if cart exist in the database */
+        var checkout_cartId = Request.QueryString["cartId"].AsInt();
+        var checkout_cart = db.QuerySingle("SELECT * FROM Cart WHERE CartId=@0", checkout_cartId);
+        
+        if (checkout_cart == null) { 
+
+            Response.Redirect("~/ReviewCart?errorOnCartId="+checkout_cartId);
+
+        }
+        else { /* Everything is okay now assign those purchased item to customer. */
+         
+            
+            /* Assign the cart to user */
+            db.Execute("UPDATE cart SET UserId=@0, CheckedOut=1 WHERE CartId=@1", WebSecurity.CurrentUserId, checkout_cartId);
+
+            /* Fetch user information */
+            var getUser = db.QuerySingle("SELECT * FROM UserProfile WHERE UserId=@0", WebSecurity.CurrentUserId);
+            var getProduct = db.QuerySingle("SELECT SUM(Price * Quantity) as Total FROM CartItems WHERE CartId=@0", checkout_cartId);
+
+            /* Initialize variable to be insert into Orders table */
+            var insert_DateTime = DateTime.Now;
+            var insert_UserId = WebSecurity.CurrentUserId;
+            var insert_FirstName = (getUser.FirstName == null) ? null : getUser.FirstName;
+            var insert_LastName = (getUser.LastName == null) ? null : getUser.LastName;
+            var insert_Address = (getUser.Address == null) ? null : getUser.Address + " " + getUser.Address2;
+            var insert_City = (getUser.City == null) ? null : getUser.City;
+            var insert_State = (getUser.State == null) ? null : getUser.State;
+            var insert_PostalCode = (getUser.PostalCode == null) ? null : getUser.PostalCode;
+            var insert_Country = (getUser.Country == null) ? null : getUser.Country;
+            var insert_Phone = (getUser.ContactNumber == null) ? null : getUser.ContactNumber;
+            var insert_Email = WebSecurity.CurrentUserName;
+            var insert_Total = (decimal)getProduct.Total;
+            var insert_PaymentTransactionId = Guid.NewGuid().ToString("d");
+            var insert_hasBeenShipped = 0;
+            var insert_PaymentMethod = paymentMethodString;
+            bool insert_isPaid = (insert_PaymentMethod.ToString() == "payWithBank") ? false : true;
+
+            /* Add new order to database using customers information */
+            var insertOrders = @"INSERT INTO Orders (OrderDate, UserId, FirstName, LastName, Address, 
+                            City, State, PostalCode, Country, Phone, 
+                            Email, Total, PaymentTransactionId, HasBeenShipped, PaymentMethod, IsPaid)
+                            VALUES (@0, @1, @2, @3, @4,
+                            @5, @6, @7, @8, @9,
+                            @10, @11, @12, @13, @14, @15)";
+
+            db.Execute(insertOrders, insert_DateTime, insert_UserId, insert_FirstName, insert_LastName, insert_Address, 
+            insert_City, insert_State, insert_PostalCode, insert_Country, insert_Phone, 
+            insert_Email, insert_Total, insert_PaymentTransactionId, insert_hasBeenShipped, insert_PaymentMethod, insert_isPaid);
+            
+            var lastCartID = (int)db.GetLastInsertId();
+            
+            /* Copy CartItems to Ordeal_Details */
+            var itemsInCart = db.Query("SELECT * FROM CartItems WHERE CartId=@0", checkout_cartId);
+
+            foreach(var row in itemsInCart)
+            {
+                db.Execute(@"INSERT INTO Order_Details (OrderId, UserId, ProductId, Quantity, Price)
+                VALUES (@0, @1, @2, @3, @4)", lastCartID, WebSecurity.CurrentUserId, row.ProductId, row.Quantity, row.Price);
+
+                /* Add popularity log :: ByView */
+                db.Execute("INSERT INTO popular_log (ProductId, ByCheckout, Date) VALUES (@0, @1, @2)", row.ProductId, 1, DateTime.Now);
+            }
+
+            /*Now remove cookie session here*/
+            Response.Cookies["cart"].Expires = DateTime.Now.AddDays(-7D);
+            
+            /*Redirect user a thank you page.*/
+            if (insert_PaymentMethod.ToString() == "payWithBank") {
+                Response.Redirect("~/OrderComplete?status=true&__TID="+insert_PaymentTransactionId);
+            }
+            else if (insert_PaymentMethod.ToString() == "payWithCard") {
+                Response.Redirect("~/OrderComplete?status=true&__CP=true&__TID="+insert_PaymentTransactionId);
+            }
+        }
+    }
+
+
+    var cartId = Request.QueryString["cartId"].AsInt();
+    var commandText = string.Empty;
+    bool canBuy = true;
+        
+    // 1. Security measure: check user if logged, else redirect
+    if (!WebSecurity.IsAuthenticated) { Response.Redirect("~/Account/Login?checkout="+cartId); }
+
+    commandText = "SELECT * FROM Cart WHERE CartId=@0";
+    var cart = db.QuerySingle(commandText, cartId);
+
+    // 1.2. Logged user: check if exist using the existing cookies
+    if (cart == null) { Response.Redirect("~/ReviewCart"); }
+    
+    commandText = @"SELECT p.ID, p.Name, c.Quantity, c.Price,  c.Quantity * c.Price AS Total, c.CartItemId
+        FROM CartItems c INNER JOIN Products p 
+        ON c.ProductId = p.Id WHERE c.CartId = @0";
+
+    var cartItems = db.Query(commandText, cartId);
+    var grid = new WebGrid(cartItems, canPage: false, canSort: false);
+    var cartTotal = cartItems.Sum(t => (decimal)t.Total);
+
+    var UserProfile = db.QuerySingle("SELECT * FROM UserProfile WHERE UserId=@0", WebSecurity.CurrentUserId);
+    
+    if(UserProfile.FirstName == null || UserProfile.LastName == null || UserProfile.Address == null ||
+        UserProfile.City == null || UserProfile.Country == null || UserProfile.ContactNumber == null) { 
+        
+        canBuy = false; 
+
+    }
+
+    bool canCompleteCheckout = false;
+    var paymentMethod = "";
+    Validation.RequireField("paymentMethod", "*Please choose a payment method");
+
+    if (IsPost && Validation.IsValid()) {
+
+        AntiForgery.Validate();
+        paymentMethod = Request.Form["paymentMethod"];
+        canCompleteCheckout = true;
+
+    }
+    var currency=(System.Globalization.NumberFormatInfo)System.Threading.Thread.CurrentThread.CurrentCulture.NumberFormat.Clone();
+    currency.CurrencySymbol="Php ";
+    
+}
+
+<div class="row">
+    <div class="col-md-12">
+    <h3>Checkout: <small>@if(canCompleteCheckout){<text>Confirm</text>} else {<text>Review</text>} order</small></h3>
+    <hr>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+    
+    <div class="col-md-8">
+    
+        <div class="row">
+
+            <div class="col-md-6">
+                <h5>
+                    <span class="animated slideInLeft @if(!canBuy){<text>text-warning</text>} ">
+                    <strong><i class="fa fa-home fa-lg" style="vertical-align: middle;"></i>&nbsp;Ship to</strong>
+                    </span>
+                </h5>
+                <address style="font-size: small; line-height: 16px;">
+                        @if(!canBuy) {
+                            <div class="alert alert-warning">
+                                <p class="text-justify">
+                                    <i class="fa fa-exclamation-triangle fa-lg animated wobble"></i>&nbsp;
+                                    A complete <strong>Shipping Address</strong> is required before you can continue with your purchase.
+                                </p>
+                                <p>
+                                    <a class="btn btn-warning btn-block animated bounceIn" href="~/Account/Manage?SetAnAddress=true">Set Address First</a>
+                                </p>
+                            </div>
+                        } else {
+                          <strong>@UserProfile.FirstName @UserProfile.LastName</strong><br>
+                          @UserProfile.Address<text> </text>@UserProfile.Address2<br>
+                          @UserProfile.City<text> </text>
+                          @UserProfile.PostalCode<br>
+                          @UserProfile.Country<br>
+                          <text><abbr title="Phone">P:</abbr></text> @UserProfile.ContactNumber
+                        }
+                </address>
+            </div>
+
+            <div class="col-md-6">
+                <h5>
+                    <span class="animated slideInRight @if(!canBuy){<text>text-warning</text>} ">
+                    <strong><i class="fa fa-money fa-lg" style="vertical-align: middle;"></i>&nbsp;Pay with</strong>
+                    </span>
+                </h5>
+                @if (paymentMethod != "") {
+                    <p>
+                    <small class="text-muted">
+                        @if (paymentMethod == "payWithBank") {
+                            <strong>Bank Deposit</strong><br>
+                            <small>Our bank details will be provided after you complete checkout.</small>
+                        } else if (paymentMethod == "payWithCard") {
+                            <strong>Card Payment</strong><br>
+                            <small>Thank you! now complete your checkout.</small>
+                        }
+                    </small>
+                    </p>
+                } else if (canBuy) {
+                    <form class="form-horizontal" method="post" role="form" id="proceed-payment-form">
+                    @AntiForgery.GetHtml()
+                    <label><input type="radio" name="paymentMethod" value="payWithCard" @Validation.For("paymentMethod") /> <small>Credit Card</small></label><br>
+                    <label><input type="radio" name="paymentMethod" value="payWithBank" @Validation.For("paymentMethod") /> <small>Bank Deposit</small></label><br>
+                    
+                    <small class="text-danger">@Html.ValidationMessage("paymentMethod")</small>
+                    </form>
+                } else {
+                    <i class="text-warning fa fa-hand-o-left fa-5x animated rotateInDownRight"></i>
+                }
+            </div>
+
+        </div>
+
+        <div class="row animated @if(canBuy){<text>flipInX</text>}else{<text>hinge</text>} ">
+            <div id="grid" class="table-responsive col-md-12">
+                @grid.GetHtml(
+                    columns: grid.Columns( 
+                        grid.Column("Name", "Product Name"),
+                        grid.Column("Quantity"),
+                        grid.Column("Price", "Unit Price", format: @<text>@item.Price.ToString("C", currency)</text>),
+                        grid.Column("Price", "Total Price", format: @<text>@item.Total.ToString("c", currency)</text>)
+                    )
+                )
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="table-responsive">
+        <table class="table table-striped table-bordered">
+            <tr>
+                <th class="text-right" style="font-size: 20pt;">
+                    Total: @cartTotal.ToString("c", currency)
+                </th>
+            </tr>
+            
+            <tr>
+                <td class="text-right text-info">
+                    <small>
+                        @if (@canCompleteCheckout) {
+                            <text>You are almost done!</text>   
+                        } else {
+                            <text>Please choose a payment method</text>    
+                        }
+                    </small>
+                </td>
+            </tr>
+                
+            <tr>
+                <th class="text-right">
+                    @if (canCompleteCheckout) {
+                        <a class="btn btn-danger" href="?completeCheckout=true&cartId=@cartId&toUserId=@WebSecurity.CurrentUserId&PM=@paymentMethod">Complete Checkout</a>
+                    } else {
+                        <button id="submit-payment-btn" class="btn btn-primary">Continue</button>
+                    }
+                </th>
+            </tr>
+        </table>
+        </div>
+    </div>
+
+    </div> <!-- /.col-md-12 -->
+
+</div> <!-- /.row -->
+
+<div class="modal fade" id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+        <h4 class="modal-title"><i class="fa fa-credit-card fa-lg"></i> Credit Card Payment</h4>
+      </div>
+      <div class="modal-body" style="padding: 0;">
+            <div class="row">
+                <div class="col-md-12">
+                  <form class="creditly-card-form">
+                    <div class="top-level-wrapper gray-theme-wrapper">
+                      <section class="creditly-wrapper gray-theme">
+                        <i>
+                          <span class="card-type" style="text-align:right;margin-top:10px;margin-right:10px;min-height:20px;margin-bottom:-15px"></span>
+                        </i>
+                        <div class="credit-card-wrapper">
+                          <div class="first-row form-group">
+                            <div class="col-sm-8 controls">
+                              <label class="control-label">Card Number</label>
+                              <input class="number credit-card-number form-control"
+                                type="text" name="number"
+                                pattern="\d*"
+                                inputmode="numeric" autocomplete="cc-number" autocompletetype="cc-number" x-autocompletetype="cc-number"
+                                placeholder="&#149;&#149;&#149;&#149; &#149;&#149;&#149;&#149; &#149;&#149;&#149;&#149; &#149;&#149;&#149;&#149;">
+                            </div>
+                            <div class="col-sm-4 controls">
+                              <label class="control-label">CVV</label>
+                              <input class="security-code form-control"·
+                                inputmode="numeric"
+                                pattern="\d*"
+                                type="text" name="security-code"
+                                placeholder="&#149;&#149;&#149;">
+                            </div>
+                          </div>
+                          <div class="second-row form-group">
+                            <div class="col-sm-8 controls">
+                              <label class="control-label">Name on Card</label>
+                              <input class="billing-address-name form-control"
+                                type="text" name="name" placeholder="Juan Dela Cruz">
+                            </div>
+                            <div class="col-sm-4 controls">
+                              <label class="control-label">Expiration</label>
+                              <input class="expiration-month-and-year form-control"
+                                type="text" name="expiration-month-and-year"
+                                placeholder="MM / YY">
+                            </div>
+                          </div>
+                        </div>
+                      </section>
+                    </div>
+                  </form>
+                </div>
+            </div>
+      </div> <!-- /.modal-body -->
+        <div class="modal-footer">
+            <button class="creditly-gray-theme-submit pull-right"><span>Submit Payment</span></button>
+        </div>
+    </div><!-- /.modal-content -->
+  </div><!-- /.modal-dialog -->
+</div><!-- /.modal -->
+
+@section scripts{
+
+<link href="~/Content/creditly.css" rel="stylesheet" />
+<script src="~/Scripts/creditly.js"></script>
+
+<script>
+    $(function () {
+
+        $( "#submit-payment-btn" ).removeAttr("data-toggle");
+        $( "#submit-payment-btn" ).removeAttr("data-target");
+        $( "#submit-payment-btn" ).removeAttr("type");
+        $( "#submit-payment-btn" ).removeAttr("form");
+
+        $("input[type='radio']").change(function () {
+            var str = "";
+            $( "input[type='radio']:checked" ).each(function() {
+                str += $( this ).val();
+            });
+                                
+            if (str === "payWithCard") {
+                $( "#submit-payment-btn" ).attr("data-toggle", "modal");
+                $( "#submit-payment-btn" ).attr("data-target", "#myModal");
+                $( "#submit-payment-btn" ).attr("type", "button");
+                $( "#submit-payment-btn" ).attr("form", "proceed-payment-form");
+            } else {
+                $( "#submit-payment-btn" ).removeAttr("data-toggle");
+                $( "#submit-payment-btn" ).removeAttr("data-target");
+                $( "#submit-payment-btn" ).attr("type", "submit");
+                $( "#submit-payment-btn" ).attr("form", "proceed-payment-form");
+            }
+
+            $( ".text-info" ).html("<small>Continue to confirm your payment</small>");
+        });
+    
+        $("#grid table").addClass("table table-striped table-bordered"); 
+        
+        var html = '<tfoot><tr><td colspan="3"><strong>Total</strong></td><td>';
+        html += '<strong>@cartTotal.ToString("c", currency)</strong>'
+        html += '</td></tr></tfoot>';
+        $('#grid table').append(html);
+
+      // For the gray theme
+      var grayThemeCreditly = Creditly.initialize(
+          '.creditly-wrapper.gray-theme .expiration-month-and-year',
+          '.creditly-wrapper.gray-theme .credit-card-number',
+          '.creditly-wrapper.gray-theme .security-code',
+          '.creditly-wrapper.gray-theme .card-type');
+
+      $(".creditly-gray-theme-submit").click(function(e) {
+        e.preventDefault();
+        var output = grayThemeCreditly.validate();
+        if (output) {
+          // Your validated credit card output
+          console.log(output);
+
+          $("#proceed-payment-form").submit();
+        }
+      });
+
+      // For the blue theme
+      var blueThemeCreditly = Creditly.initialize(
+          '.creditly-wrapper.blue-theme .expiration-month-and-year',
+          '.creditly-wrapper.blue-theme .credit-card-number',
+          '.creditly-wrapper.blue-theme .security-code',
+          '.creditly-wrapper.blue-theme .card-type');
+
+      $(".creditly-gray-theme-submit").click(function(e) {
+        e.preventDefault();
+        var output = blueThemeCreditly.validate();
+        if (output) {
+          $("#proceed-payment-form").submit();
+          
+        }
+      });
+    });
+</script>
+}

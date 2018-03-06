@@ -1,0 +1,46 @@
+﻿@{
+    if (!WebSecurity.IsAuthenticated) {
+        Response.Redirect("~/Account/Login?returnUrl="
+            + Request.Url.LocalPath);
+    }
+
+    if (!Roles.IsUserInRole("admin")) {
+         Response.Redirect("~/");
+    }
+
+    //VP
+    /*using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+using System.Web.UI;
+using System.Web.UI.WebControls;
+using System.Data.SqlClient;
+
+namespace OnlineOrderingMarketingSystem
+{
+    public partial class ViewInventory : System.Web.UI.Page
+    {
+        DAT dat;
+        protected void Page_Load(object sender, EventArgs e)
+        {
+            dat = new DAT();
+
+            dat.Open();
+            if (!IsPostBack)
+            {
+                SqlDataReader sdrGetInventory = dat.ViewInventory();
+                GridViewInventory.DataSource = sdrGetInventory;
+                GridViewInventory.DataBind();
+                sdrGetInventory.Close();
+            }
+            dat.Close();
+        }
+
+        protected void LinkButton1_Click(object sender, EventArgs e)
+        {
+            Response.Redirect("WebForm1.aspx");
+        }
+    }
+}*/
+}

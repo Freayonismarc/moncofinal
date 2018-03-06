@@ -1,0 +1,288 @@
+﻿@{
+    Layout = "~/_SiteLayout.cshtml";
+    Page.Title = "My Purchases";
+
+    if (!WebSecurity.IsAuthenticated) {
+        Response.Redirect("~/");
+    }
+
+    var db = Database.Open("tierone");
+    var commandText = String.Empty;
+
+    /* Select all orders of the user */
+    
+    if (Request.QueryString["showUnpaidPurchase"].AsBool() == true) {
+        /* Select all unpaid orders of the user */
+        commandText = @"SELECT * FROM Orders WHERE UserId=@0 AND IsPaid=0 ORDER BY OrderDate DESC";
+    } else {
+        commandText = @"SELECT * FROM Orders WHERE UserId=@0 ORDER BY OrderDate DESC";
+    }
+
+    var getOrders = db.Query(commandText, WebSecurity.CurrentUserId);
+    var cntNeedToPay = db.Query("SELECT * FROM Orders WHERE UserId=@0 AND IsPaid=0", WebSecurity.CurrentUserId);
+    var cntAllOrders = db.Query("SELECT * FROM Orders WHERE UserId=@0 ORDER BY OrderDate DESC", WebSecurity.CurrentUserId);
+    
+    var showing = (getOrders.Count() > 1) ? "items" : "item";
+}
+
+<div class="row">
+    <div class="col-md-3"></div>
+    <div class="col-md-9" style="padding-left: 0px;">
+        <div>
+            <small>Showing @getOrders.Count() @showing</small>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    
+    <div class="col-md-3">
+        <div class="list-group animated fadeInDown">
+          <a href="~/Account/Purchases?showAllItem=true" class="list-group-item"><i class="fa fa-eye fa-fw"></i>&nbsp;View Summary
+              <span class="badge">@cntAllOrders.Count()</span>
+          </a>
+          <a href="~/Account/Purchases?showUnpaidPurchase=true" class="list-group-item"><i class="fa fa-exclamation-circle fa-fw"></i>&nbsp;Purshases I need to pay
+              <span class="badge">@cntNeedToPay.Count()</span>
+          </a>
+          <a href="#" class="list-group-item"></a>
+          <div class="list-group-item text-info" style="padding-top: 0px;">
+              <div class="row">
+                  <div class="col-md-12"><h5>Icon Legend</h5></div>
+              </div>
+              <div class="row">
+                  <div class="col-md-2"><i class="fa fa-truck"></i></div>
+                  <div class="col-md-*">Shipment Status</div>
+              </div>
+              <div class="row">
+                  <div class="col-md-2"><i class="fa fa-dollar"></i></div>
+                  <div class="col-md-*">Payment Status</div>
+              </div>
+              <div class="row">
+                  <div class="col-md-2"><i class="fa fa-check-circle"></i></div>
+                  <div class="col-md-*">Posted</div>
+              </div>
+              <div class="row">
+                  <div class="col-md-2"><i class="fa fa-check-square-o"></i></div>
+                  <div class="col-md-*">Request</div>
+              </div>
+          </div>
+
+        </div>
+    </div> <!-- /.col-md-3 / Left Container -->
+
+    <!-- Order data of user exist -->
+    @if (getOrders.Count() > 0) {
+
+    <div class="col-md-9">
+        <!--! Loop through each order -->
+        @foreach(var xrow in getOrders) {
+            
+            bool xrow_IsPaid = xrow.IsPaid; bool xrow_IsShipped = xrow.HasBeenShipped;
+            var BtnClassIsPaid = String.Empty; var BtnClassIsDeliver = String.Empty;
+            var BtnClassPosted = String.Empty; var DisplayMessage = String.Empty;
+            var IconClass = String.Empty;
+
+            if (xrow_IsPaid) { BtnClassIsPaid = "btn-success btn-block"; } else { BtnClassIsPaid = "btn-danger btn-block"; }
+            if (xrow_IsShipped) { BtnClassIsDeliver = "btn-success btn-block"; } else { BtnClassIsDeliver = "btn-danger btn-block"; }
+
+            /* If both paid and shipped display item is posted */
+            if (xrow_IsPaid && xrow_IsShipped) {
+                BtnClassPosted = "btn-success btn-block";
+                DisplayMessage = "Thank you!";
+                IconClass =  "fa-check-circle";
+            }
+            /* If paid and not shipped display item is paid */
+            else if (xrow_IsPaid && !xrow_IsShipped) {
+                BtnClassPosted = "btn-info btn-block";
+                DisplayMessage = "Waiting for posting";
+                IconClass =  "fa-check";
+            } else {
+                BtnClassPosted = "btn-danger btn-block";
+                DisplayMessage = "Mark as payment sent";
+                IconClass =  "fa-check-square-o";
+            }
+                
+            var cntItemsPerOrder = db.QueryValue("SELECT COUNT(*) FROM Order_Details WHERE OrderId=@0", xrow.OrderId);
+            var cntQtyOfAllItems = db.QueryValue(" SELECT SUM(Quantity) FROM Order_Details WHERE OrderId=@0", xrow.OrderId);
+            
+            /* Initialize common variables */
+            var orderDate = xrow.OrderDate.ToString("MM-dd-yyyy hh:mm tt");
+            var total = String.Format("Php "+"{0:n}", xrow.Total);
+            
+            if (cntItemsPerOrder == 1) {
+            /* This will show design for one item */
+
+            var orderDetails = db.QuerySingle("SELECT * FROM Order_Details WHERE OrderId=@0", xrow.OrderId);
+            var productName = db.QueryValue("SELECT Name FROM Products WHERE Id=@0", orderDetails.ProductId);
+            var productImg = db.QuerySingle("SELECT FileTitle, FileExtension FROM Products_Image WHERE ForProductId=@0", orderDetails.ProductId);
+
+            <div class="row" style="border:solid 1px gray; padding: 0; margin-bottom: .5em;">
+            
+            <!-- Product mage cointainer -->
+            <div class="col-md-3" style="padding: 0;"> 
+                <a class="image-popup-no-margins" href="~/Uploaded/@productImg.FileTitle@productImg.FileExtension">
+                    <img width="219px" height="163px" src="~/Uploaded/@productImg.FileTitle@productImg.FileExtension" alt="@productImg.FileTitle + @productImg.FileExtension" />
+                </a>
+            </div><!-- /.col-md-3-->
+
+            <!-- Product name, orderdate, qty Container -->
+            <div class="col-md-4">
+                <h4><strong>@productName</strong></h4>
+                <span>Quantity: @Convert.ToInt32(cntQtyOfAllItems)</span><br />
+                <span>Order Date: @orderDate</span><br />
+            </div><!-- /.col-md-4-->
+
+            <!-- Product price container -->
+            <div class="col-md-2 text-right">
+                <h4>@total</h4>
+            </div><!-- /.col-md-2-->
+
+            <!-- Action buttons container -->
+            <div class="col-md-3">
+                
+                <div class="row" style="max-width: fit-content;"> <!-- Upper buttons set container -->
+
+                    <div class="col-md-6" style="padding: 0; max-width: inherit;">
+                        <span class="btn @BtnClassIsPaid" style="height: 81.5px;">
+                            <i class="fa fa-dollar fa-4x"></i>
+                        </span>
+                    </div>
+
+                    <div class="col-md-6" style="padding: 0; max-width: inherit;">
+                        <span class="btn @BtnClassIsDeliver" style="height: 81.5px;">
+                            <i class="fa fa-truck fa-4x"></i>
+                        </span>
+                    </div>
+
+                </div>
+
+                <div class="row" style="max-width: fit-content;"> <!-- Lower button container -->
+
+                    <div class="col-md-12" style="padding: 0; max-width: inherit;">
+                        <button class="btn @BtnClassPosted" style="height: 81.5px; font-size: 14pt;">
+                            <i class="fa @IconClass"></i>&nbsp;@DisplayMessage
+                        </button>
+                    </div>
+
+                </div>
+
+            </div><!-- /.col-md-3-->
+
+            </div><!-- /.row --> 
+
+            } else if (cntItemsPerOrder > 1) {
+            /* This will show design for more than one items */
+
+            <div class="row" style="border:solid 1px gray; padding: 0; margin-bottom: .5em;">
+            
+            <!-- Product name, orderdate, qty Container -->
+            <div class="col-md-5">
+                <h4><strong>Orders: @cntItemsPerOrder</strong></h4>
+                <span>Quantity: @Convert.ToInt32(cntQtyOfAllItems)</span><br />
+                <span>Order Date: @orderDate</span><br />
+            </div><!-- /.col-md-7-->
+
+            <!-- Product price container -->
+            <div class="col-md-4 text-right">
+                    <h3 style="margin-top: 10.50px; font-weight: bolder;">Total:<br>@total</h3>
+            </div><!-- /.col-md-2-->
+
+            <!-- Action buttons container -->
+            <div class="col-md-3">
+
+                <!-- Upper buttons set container -->
+                <div class="row"> 
+
+                    <div class="col-md-6" style="padding: 0;">
+                        <span class="btn @BtnClassIsPaid" style="height: 81.5px;">
+                            <i class="fa fa-dollar fa-4x"></i>
+                        </span>
+                    </div>
+
+                    <div class="col-md-6" style="padding: 0;">
+                        <span class="btn @BtnClassIsDeliver" style="height: 81.5px;">
+                            <i class="fa fa-truck fa-4x"></i>
+                        </span>
+                    </div>
+
+                </div>
+                
+                <!-- Lower button container -->
+                <div class="row" style="max-width: fit-content;"> 
+
+                    <div class="col-md-12" style="padding: 0; max-width: inherit;">
+                        <button class="btn @BtnClassPosted" style="height: 81.5px; font-size: 14pt;">
+                            <i class="fa @IconClass"></i>&nbsp;@DisplayMessage
+                        </button>
+                    </div>
+
+                </div>
+
+            </div><!-- /.col-md-3-->
+
+            @{
+                var getItemsOfOrderId = db.Query("SELECT * FROM Order_Details WHERE OrderId=@0", xrow.OrderId);
+            }
+
+            @foreach(var xrowx in getItemsOfOrderId) {
+            <!-- Show multiple items in order -->
+
+            var xproductNamex = db.QueryValue("SELECT Name FROM Products WHERE Id=@0", xrowx.ProductId);
+            var productImg = db.QuerySingle("SELECT FileTitle, FileExtension FROM Products_Image WHERE ForProductId=@0", xrowx.ProductId);
+
+            <div class="row">
+                <div class="col-md-12">
+
+                    <div>
+                        <div class="row" style="border-top: solid 1px gray;padding: 0; margin: 0;">
+                            
+                            <div class="col-md-2" style="padding: 0;">
+                                <a class="image-popup-no-margins" href="~/Uploaded/@productImg.FileTitle@productImg.FileExtension">
+                                <img width="146px" height="100px" src="~/Uploaded/@productImg.FileTitle@productImg.FileExtension" alt="@productImg.FileTitle + @productImg.FileExtension" />
+                                </a>
+                            </div>
+                            
+                            <div class="col-md-7">
+                                <h4><strong>@xproductNamex</strong></h4>
+                                <span>Quantity: @Convert.ToInt32(xrowx.Quantity)</span><br />
+                            </div>
+
+                            <div class="col-md-3 text-right">
+                                <h4 style="margin-top: 10.50px;">Price:<br>@String.Format("Php "+"{0:n}", xrowx.Price)</h4>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <div style="border-top:solid 1px gray; padding: 0;">
+                        
+                    </div>
+
+                </div>
+            </div>
+
+            }
+
+        </div><!-- /.row --> 
+
+            } else {
+
+                /* Do something here for telling the user that orderis didn't found in order_details table | internal_error */
+
+            }
+
+        }
+
+    </div><!-- /.col-md-9 / Right Container -->
+
+    } else { <!-- No order data exist -->
+        <div class="col-md-9">
+            <div class="alert alert-info">
+                <h5>No data found</h5>
+                <p>
+                    You haven't made any purchase yet.
+                </p>
+            </div>
+        </div>
+    }
+</div> <!-- /.row -->

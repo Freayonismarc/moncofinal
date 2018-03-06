@@ -1,0 +1,142 @@
+﻿@{
+    Layout = "~/_AdminLayout.cshtml";
+    Page.Title = "User Management / Add User";
+
+    // Initialize general page variables
+    var fullname = "";
+    var email = "";
+    var password = "";
+    DateTime birthdate;
+
+    // Setup validation
+    Validation.RequireField("fullname", "Providing a name is not hard as that.");
+    Validation.RequireField("email", "Email is required to this user to signin.");
+    Validation.RequireField("password", "Please provide a password for this account.");
+    Validation.RequireField("birthdate", "When this human born?");
+    Validation.Add("password",
+        Validator.StringLength(
+            maxLength: Int32.MaxValue,
+            minLength: 6,
+            errorMessage: "Password must be at least 6 characters"));
+
+    // Assign for data into variables
+    fullname = Request.Form["fullname"];
+    email = Request.Form["email"];
+    password = Request.Form["password"];
+    birthdate = Convert.ToDateTime(Request.Form["birthdate"]);
+
+    // Check for Post request then validation data
+    if (IsPost && Validation.IsValid()) {
+        
+        try {
+            AntiForgery.Validate();
+        }
+        catch (Exception e) {
+            ModelState.AddFormError(e.Message);
+        }
+
+        // If all information is valid, create a new account
+        if(ModelState.IsValid) {
+            // Open database
+            var db = Database.Open("tierone");
+            
+            // Check if user already exists
+            var user = db.QuerySingle("SELECT Email FROM UserProfile WHERE LOWER(Email) = LOWER(@0)", email);
+            if (user == null) {
+                // Insert email, birthdate & fullname into the UserProfile table
+                db.Execute("INSERT INTO UserProfile (Email, FirstName, BirthDate) VALUES (@0, @1, @2)", email, fullname, birthdate);
+
+                // Create and associate a new entry in the membership database.
+                // If successful, continue processing the request
+                try {
+                   // Create User
+                   bool requireConfirmation = false;
+                   WebSecurity.CreateAccount(email, password, requireConfirmation); // Insert user data into webpages_Membership
+
+                   Response.Redirect("~/Admin/UserManagement");
+
+                } catch (System.Web.Security.MembershipCreateUserException e) {
+                    ModelState.AddFormError(e.Message);
+                }
+             } else {
+                // User already exists
+                ModelState.AddFormError("Email address is already in use.");
+            }
+        }
+
+    }
+}
+
+<div class="row">
+    <div class="col-lg-12">
+        <h1 class="page-header"><i class="fa fa-user"></i>&nbsp;@Page.Title</h1>
+    </div>
+    <!-- /.col-lg-12 -->
+</div>
+<!-- /.row -->
+
+<div class="row">
+    <div class="col-lg-12">
+    @* If at least one validation error exists, notify the user *@
+    @Html.ValidationSummary("Account creation was unsuccessful. Please correct the errors and try again.", excludeFieldErrors: true, htmlAttributes: null)
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-12">
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                <a href="~/Admin/UserManagement"><i class="fa fa-arrow-left"></i>&nbsp; Return</a> /
+                Add User Form
+            </div>
+            <!-- /.panel-heading -->
+            
+            <div class="panel-body">
+                <form id="add-user-form" class="form-horizontal" role="form" method="POST">
+                @AntiForgery.GetHtml()
+                    <div class="form-group">
+                        <label class="col-sm-2 control-label">Full Name:</label>
+                        <div class="col-sm-10">
+                            <input type="text" class="form-control" name="fullname" value="@fullname" required />
+                            @Html.ValidationMessage("fullname")
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="col-sm-2 control-label">Birthdate:</label>
+                        <div class="col-sm-10">
+                        <input type="date" class="form-control" name="birthdate" value="@{ @birthdate.ToString("yyyy-MM-dd") if(birthdate.ToString("yyyy-MM-dd") == "0001-01-01") { <text>YYYY-MM-DD</text> } }" required />
+                            @Html.ValidationMessage("birthdate")
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="col-sm-2 control-label">Email:</label>
+                        <div class="col-sm-10">
+                        <input type="email" class="form-control" name="email" value="@email" required />
+                            @Html.ValidationMessage("email")
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="col-sm-2 control-label">Password:</label>
+                        <div class="col-sm-10">
+                        <input type="password" class="form-control" name="password" required />
+                            @Html.ValidationMessage("password")
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <!-- /.panel-body -->
+
+            <div class="panel-footer">
+                <div class="text-right">
+                    <button type="submit" class="btn btn-primary" form="add-user-form">Submit</button>
+                </div>
+            </div>
+        </div>
+        <!-- /.panel -->
+    </div>
+    <!-- /.col-lg-12 -->
+</div>
+<!-- /.row -->

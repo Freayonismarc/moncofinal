@@ -1,0 +1,481 @@
+﻿@{
+    Layout = "~/_AdminLayout.cshtml";
+    Page.Title = "Orders / Sales";
+
+    bool viewAll = Request.QueryString["ViewAll"].AsBool();
+  
+    if (!viewAll) {
+        Response.Redirect("~/Admin/Admin");
+    }
+
+    /* Open database connection */
+    var db = Database.Open("tierone");
+
+    /* Update order to unpaid status */
+    if (Request.QueryString["UnpaidOrder"] != null) {
+        
+        int orderId = Request.QueryString["UnpaidOrder"].AsInt();
+
+        var orderExist = db.QueryValue("SELECT COUNT(*) FROM Orders WHERE OrderId=@0", orderId);
+
+        /* If order exist continue of updating order */
+        if (orderExist == 1) {
+            
+            db.Execute("UPDATE Orders SET IsPaid=0 WHERE OrderId=@0", orderId);
+
+        }
+
+    }
+    /* Update order to paid status*/
+    else if (Request.QueryString["PaidOrder"] != null) {
+
+        int orderId = Request.QueryString["PaidOrder"].AsInt();
+
+        var orderExist = db.QueryValue("SELECT COUNT(*) FROM Orders WHERE OrderId=@0", orderId);
+
+        /* If order exist continue of updating order */
+        if (orderExist == 1) {
+            
+            db.Execute("UPDATE Orders SET IsPaid=1 WHERE OrderId=@0", orderId);
+
+        }
+        
+    }
+    /* Update order to delivered status */
+    else if (Request.QueryString["DeliverOrder"] != null) {
+
+        int orderId = Request.QueryString["DeliverOrder"].AsInt();
+
+        var orderExist = db.QueryValue("SELECT COUNT(*) FROM Orders WHERE IsPaid=1 AND OrderId=@0", orderId);
+
+        /* If order exist continue of updating order */
+        if (orderExist == 1) {
+            
+            db.Execute("UPDATE Orders SET HasBeenShipped=1 WHERE IsPaid=1 AND OrderId=@0", orderId);
+
+        }
+        
+    }
+    /* Delete order make sure it is not paid */
+    else if (Request.QueryString["DeleteOrder"] != null) {
+
+        int orderId = Request.QueryString["DeleteOrder"].AsInt();
+
+        var orderExist = db.QueryValue("SELECT COUNT(*) FROM Orders WHERE IsPaid=0 AND OrderId=@0", orderId);
+
+        /* If order exist continue of updating order */
+        if (orderExist == 1) {
+            
+            db.Execute("DELETE FROM Orders WHERE IsPaid=0 AND OrderId=@0", orderId);
+
+        }
+        
+    }
+    /* Request to view order details */
+    else if (Request.QueryString["ViewOrder"] != null) {
+        
+        int orderId = Request.QueryString["ViewOrder"].AsInt();
+
+    }
+
+    /*  Showing quick orders into quick view panel 
+     *  1-Pending Payment: Customer just order the product/s, admin has the command to approved this if paid
+     *  2-Paid: Customer paid the amount of orders, but not yet delivered
+     *  3-Shipped: Paid and Already delivered, this will deduct to the current inventory of products
+     */
+    
+    var AllOrdersNoLimit = db.Query("SELECT * FROM Orders");
+    var AllOrders = db.Query("SELECT * FROM Orders ORDER BY OrderDate DESC");
+    var NewOrders = db.Query("SELECT * FROM Orders WHERE IsPaid=0 AND HasBeenShipped=0");
+    var PaidOrders = db.Query("SELECT * FROM Orders WHERE IsPaid=1 AND HasBeenShipped=0");
+    var DeliveredOrders = db.Query("SELECT * FROM Orders WHERE IsPaid=1 AND HasBeenShipped=1");
+
+    DateTime lastWeek =  DateTime.Now;
+    lastWeek = lastWeek.AddDays(-7);
+    /* Select unpaid orders for a week or so we treat it as inactive orders */
+    var InActiveOrders = db.QueryValue("SELECT COUNT(*) FROM Orders WHERE IsPaid=0 AND OrderDate < @0", lastWeek);
+
+}
+
+<div class="row">
+    <div class="col-sm-12">
+        <ol class="breadcrumb">
+          <li><a href="~/Admin/OrderManagement?ViewAll=true">All Orders</a></li>
+          <li class="active">View Order</li>
+        </ol>
+    </div>
+    <!-- /.col-lg-12 -->
+</div>
+<!-- /.row -->
+
+<!--tiles start-->
+<div class="row">
+
+        <div class="col-md-3 col-sm-6">
+            <div class="dashboard-tile detail tile-purple">
+                <div class="content">
+                <h1 class="text-left timer" data-from="0" data-to="@NewOrders.Count()" data-speed="1000"></h1>
+                <p>New Sales</p>
+                </div>
+                <div class="icon"><i class="fa fa-bar-chart-o"></i></div>
+            </div>
+        </div>
+
+        <div class="col-md-3 col-sm-6">
+            <div class="dashboard-tile detail tile-turquoise">
+                <div class="content">
+                <h1 class="text-left timer" data-from="0" data-to="@PaidOrders.Count()" data-speed="1000"></h1>
+                <p>Paid Orders</p>
+                </div>
+                <div class="icon"><i class="fa fa-dollar"></i></div>
+            </div>
+        </div>
+
+        <div class="col-md-3 col-sm-6">
+            <div class="dashboard-tile detail tile-blue">
+                <div class="content">
+                <h1 class="text-left timer" data-from="0" data-to="@DeliveredOrders.Count()" data-speed="1000"></h1>
+                <p>Delivered Orders</p>
+                </div>
+                <div class="icon"><i class="fa fa-truck"></i></div>
+            </div>
+        </div>
+
+        <div class="col-md-3 col-sm-6">
+            <div class="dashboard-tile detail tile-red">
+                <div class="content">
+                <h1 class="text-left timer" data-from="0" data-to="@InActiveOrders" data-speed="1000"></h1>
+                <p>Inactive Orders</p>
+                </div>
+                <div class="icon"><i class="fa fa-wheelchair"></i></div>
+            </div>
+        </div>
+
+</div>
+<!--tiles end-->
+
+@{
+  if (Request.QueryString["ViewOrder"] != null) {
+
+        int orderId = Request.QueryString["ViewOrder"].AsInt();
+        var row = db.QuerySingle("SELECT * FROM Orders WHERE OrderId=@0", orderId);
+        var FirstName = row.FirstName + " " + row.LastName;
+        var Email = row.Email;
+        var Address = row.Address + " " + row.City + " " + row.Country + " " + row.PostalCode;
+        var Contact = row.Phone;
+        var OrderDate = row.OrderDate;
+        var OrderAmount = String.Format("Php "+"{0:n}", row.Total);
+        var PaymentMethod = row.PaymentMethod;
+
+        <div class="col-sm-6">
+            <div class="panel panel-default">
+                    <div class="panel-heading">
+                        Customer Information
+                    </div>
+                    <!-- /.panel-heading -->
+
+                    <div class="panel-body">
+                        <div class="table-responsive">
+                            <table class="table">
+                                <tr>
+                                    <td>Customer Name</td>
+                                    <td>@FirstName</td>
+                                </tr>
+                                <tr>
+                                    <td>Email</td>
+                                    <td>@Email</td>
+                                </tr>
+                                <tr>
+                                    <td>Shipping Address</td>
+                                    <td>@Address</td>
+                                </tr>
+                                <tr>
+                                    <td>Telephone</td>
+                                    <td>@Contact</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+            </div>
+        </div>
+
+        <div class="col-sm-6">
+            <div class="panel panel-default">
+                    <div class="panel-heading">
+                        Order # @orderId
+                    </div>
+                    <!-- /.panel-heading -->
+
+                    <div class="panel-body">
+                        <div class="table-responsive">
+                            <table class="table">
+                                <tr>
+                                    <td>Order Date</td>
+                                    <td>@OrderDate</td>
+                                </tr>
+
+                                <tr>
+                                    <td>Order Status</td>
+                                    <td>
+                                       @{
+                                            var rowStat = db.QuerySingle("SELECT * FROM Orders WHERE OrderId=@0", orderId);
+
+                                            /* Inactive Orders*/
+                                            bool isInactive = (DateTime.Now - rowStat.OrderDate).TotalDays > 7; // Check OrderDate if exceeds to 7 days
+                                            if (!rowStat.IsPaid && !rowStat.HasBeenShipped && isInactive) {
+                                                <span class="label label-danger">Inactive</span>
+                                            }
+                                            /* New Orders */
+                                            else if (!rowStat.IsPaid && !rowStat.HasBeenShipped) {
+                                                <span class="label label-default">New</span>
+                                            }
+                                            /* Paid Undelivered Orders */
+                                            else if (rowStat.IsPaid && !rowStat.HasBeenShipped) {
+                                                <span class="label label-success">Paid</span>
+                                            }
+                                            /* Paid & Delivered Orders */
+                                            else if (rowStat.IsPaid && rowStat.HasBeenShipped) {
+                                                <span class="label label-primary">Delivered</span>
+                                            }
+                                        }
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td>Order Total Amount</td>
+                                    <td>@OrderAmount</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+            </div>
+        </div>
+        
+        <div class="col-sm-12">
+            <div class="panel panel-default">
+                    <div class="panel-heading">
+                        <i class="fa fa-shopping-cart fa-fw"></i>&nbsp;Items Ordered
+                    </div>
+                    <!-- /.panel-heading -->
+                @{
+                    var tresults=db.Query("SELECT P.Name,OD.Price,OD.Quantity,OD.Quantity*OD.Price AS SubTotal "+
+                    "FROM Orders O INNER JOIN Order_Details OD ON O.OrderId=OD.OrderId INNER JOIN Products P ON OD.ProductId=P.Id "+
+                    "WHERE O.UserId=(SELECT UserId FROM Orders WHERE OrderId=@0);",orderId);
+                    }
+                    <div class="panel-body">
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Product</th>
+                                        <th>Price</th>
+                                        <th>Qty.</th>
+                                        <th>SubTotal</th>
+                                    </tr>
+                                </thead>
+
+                                <tbody>
+                                        @{foreach(var tresult in tresults){
+                                        <tr>
+                                        <td>@tresult.Name</td>
+                                        <td>@tresult.Price</td>
+                                        <td>@tresult.Quantity</td>
+                                        <td>@tresult.SubTotal</td>
+                                        </tr>    
+                                            }
+                                        }
+                                    
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+            </div>
+        </div>
+
+        var OrdersProductName = db.Query("SELECT Products.Name as ProductName, OrderId FROM Products INNER JOIN Order_Details ON Products.Id = Order_Details.ProductId WHERE Order_Details.OrderId=@0", orderId);
+        
+        if (OrdersProductName.Count() > 1) {
+
+            var x = 0;
+
+            foreach(var row_x in OrdersProductName) {
+
+              // Handles long product name and display it nicely without cutting the text
+              string productName = row_x.ProductName;
+
+              if (productName.Length > 30) {
+                  productName = productName.Substring(0, 30);
+                  int index = productName.LastIndexOf(' ');
+                  productName = productName.Substring(0, index) + "...";
+              }
+
+              if (x == 1) {
+              <span>@productName</span>
+              }
+              x++;
+            }   
+    
+            if (x == 1) {
+              <sup class="text-muted">and @x other</sup>
+            }
+            if (x >= 2) {
+              <sup class="text-muted">and @x other</sup>
+            }
+                                              
+        } else {
+
+            foreach(var row_x in OrdersProductName) {
+
+              // Handles long product name and display it nicely without cutting the text
+              string productName = row_x.ProductName;
+
+              if (productName.Length > 30) {
+                  productName = productName.Substring(0, 30);
+                  int index = productName.LastIndexOf(' ');
+                  productName = productName.Substring(0, index) + "...";
+              }
+
+                <span title="@row_x.ProductName">@productName</span>
+            }
+    
+        } 
+                          
+    }
+    
+    else {
+ 
+    <div class="row">
+    <div class="col-sm-12 animated fadeInDown">
+        <div class="panel panel-default">
+                <div class="panel-heading">
+                    <i class="fa fa-shopping-cart fa-fw"></i>&nbsp;Orders
+                </div>
+                <!-- /.panel-heading -->
+
+                <div class="panel-body">
+                    <div class="table-responsive">
+                        <table id="orderlisting-data-table" class="table table-striped table-borderd">
+                            <thead>
+                                <tr>
+                                    <th>Order #</th>
+                                    <th>Customer</th>
+                                    <th class="text-right">Total</th>
+                                    <th class="text-right">Order Date</th>
+                                    <th class="text-right">Payment Method</th>
+                                    <th>Status</th>
+                                    <th class="text-right">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            @foreach(var row in AllOrders) {
+                                <tr class="">
+                                    <td>
+                                        @row.OrderId
+                                    </td>
+
+                                    <td>
+                                        @db.QueryValue("SELECT FirstName FROM UserProfile WHERE UserId=@0", row.Userid)
+                                    </td>
+                                                                        
+                                    <td class="text-right">
+                                        @String.Format("Php "+"{0:n}", row.Total)
+                                    </td>
+
+                                    <td class="text-right">
+                                        @row.OrderDate
+                                    </td>
+                                    
+                                    <td class="text-right">
+                                        @row.PaymentMethod
+                                    </td>
+
+                                    <td>
+                                    @{
+                                        /* Inactive Orders*/
+                                        bool isInactive = (DateTime.Now - row.OrderDate).TotalDays > 7; // Check OrderDate if exceeds to 7 days
+                                        if (!row.IsPaid && !row.HasBeenShipped && isInactive) {
+                                            <span class="label label-danger">Inactive</span>
+                                        }
+                                        /* New Orders */
+                                        else if (!row.IsPaid && !row.HasBeenShipped) {
+                                            <span class="label label-default">New</span>
+                                        }
+                                        /* Paid Undelivered Orders */
+                                        else if (row.IsPaid && !row.HasBeenShipped) {
+                                            <span class="label label-success">Paid</span>
+                                        }
+                                        /* Paid & Delivered Orders */
+                                        else if (row.IsPaid && row.HasBeenShipped) {
+                                            <span class="label label-primary">Delivered</span>
+                                        }
+                                    }
+                                    </td>
+
+                                    <td>
+                                        <div class="btn-group pull-right">
+                                            <a class="btn btn-primary btn-sm" href="OrderManagement?ViewAll=true&ViewOrder=@row.OrderId">
+                                                <i class="fa fa-eye fa-fw"></i>
+                                                View
+                                            </a>
+                                            
+                                            <button type="button" class="btn btn-danger btn-sm dropdown-toggle @if (row.IsPaid && row.HasBeenShipped) {<text>disabled</text>}" data-toggle="dropdown">
+                                                <i class="fa fa-cog fa-lg fa-fw"></i>&nbsp;
+                                                <span class="caret"></span>
+                                            </button>
+                                            <ul class="dropdown-menu pull-right animated half fadeInRight" role="menu">
+                                                @{
+                                                    var deleteUrl = "OrderManagement?ViewAll=true&DeleteOrder=";
+                                                    var paidUrl = "OrderManagement?ViewAll=true&PaidOrder=";
+                                                    var unpaidUrl = "OrderManagement?ViewAll=true&UnpaidOrder=";
+                                                    var deliverUrl = "OrderManagement?ViewAll=true&DeliverOrder=";
+                                                    
+                                                    /* Inactive Orders */
+                                                    if (!row.IsPaid && !row.HasBeenShipped && isInactive) {
+                                                        <li>
+                                                            <a class="order-action" href="@deleteUrl@row.OrderId"><i class="fa fa-trash-o fa-fw"></i>&nbsp;Delete order</a>
+                                                        </li>
+                                                    }
+                                                    /* New Orders */
+                                                    else if (!row.IsPaid && !row.HasBeenShipped) {
+                                                        <li>
+                                                            <a class="order-action" href="@paidUrl@row.OrderId"><i class="fa fa-check-square fa-fw"></i>&nbsp;Mark as paid</a>
+                                                        </li>
+                                                    }
+                                                    /* Paid Undelivered Orders */
+                                                    if (row.IsPaid && !row.HasBeenShipped) {
+                                                        <li>
+                                                            <a class="order-action" href="@unpaidUrl@row.OrderId"><i class="fa fa-minus-square fa-fw"></i>&nbsp;Mark as unpaid</a>
+                                                        </li>
+                                                        <li>
+                                                            <a class="order-action" href="@deliverUrl@row.OrderId"><i class="fa fa-truck fa-fw"></i>&nbsp;Mark as delivered</a>
+                                                        </li>
+                                                    }
+                                                    /* Paid & Delivered Orders */
+                                                    if (row.IsPaid && row.HasBeenShipped) {
+                                                        
+                                                    }
+                                                }
+                                            </ul>
+                                        </div>
+                                    </td>
+                                </tr>
+                             }
+                             </tbody>
+                        </table>
+                    </div>
+                    <!-- /.table-responsive -->
+                </div>
+                <!-- /.panel-body -->
+        </div>
+        <!-- /.panel -->
+    </div>
+    <!-- /.col-sm-12 -->
+</div>
+
+    }
+}
+<script>
+    $(function () {
+        app.timer();
+    });
+</script>

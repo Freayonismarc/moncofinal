@@ -1,0 +1,275 @@
+﻿@{
+    Layout = "~/_AdminLayout.cshtml";
+    Page.Title = "Inventory Management / Update Product";
+
+    // Initialize general page variables
+    var Name = "";
+    var Description = "";
+    var Price = Decimal.Zero;
+    bool AlertOnStock = false;
+    int CategoryId;
+    int CriticalLevel;
+
+    // Setup validation
+    Validation.RequireField("Name", "Product name is required.");
+    Validation.RequireField("Description", "Product description is required.");
+    Validation.RequireField("Price", "Product price is required.");
+    Validation.RequireField("Category", "Category is required.");
+    Validation.RequireField("AlertOnStock", "Stock Alert Level is required.");
+    Validation.RequireField("CriticalLevel", "Critical Level is required.");
+
+    var ProductId  = UrlData[0];
+
+    if (ProductId.IsEmpty()) {
+         Response.Redirect("~/Admin/InventoryManagement");
+    }
+
+    // Open database connection
+    var db = Database.Open("tierone");
+
+    if (IsPost && Validation.IsValid()) {
+        AntiForgery.Validate();
+
+        Name = Request.Form["Name"];
+        Description = Request.Form["Description"];
+        Price = Request.Form["Price"].AsDecimal();
+        CategoryId = Request.Form["Category"].AsInt();
+        AlertOnStock  = Request.Form["AlertOnStock"].AsBool();
+        CriticalLevel  = Request.Form["CriticalLevel"].AsInt();
+
+        var updateQueryString = "UPDATE Products SET Name=@0, Description=@1, Price=@2, CategoryId=@3, AlertOn=@4, CriticalLevel=@5 WHERE Id=@6" ;
+        db.Execute(updateQueryString, Name, Description, Price, CategoryId, AlertOnStock, CriticalLevel, ProductId);
+        
+        Response.Redirect(@Href("~/Admin/InventoryManagement"));
+    }
+    else {
+
+        var row = db.QuerySingle("SELECT * FROM Products WHERE Id=@0", ProductId);
+        Name = row.Name;
+        Description = row.Description;
+        Price = row.Price;
+        CategoryId = row.CategoryId;
+        AlertOnStock = row.AlertOn;
+        CriticalLevel = row.CriticalLevel;
+
+    }
+
+    //EP
+    /*using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+using System.Web.UI;
+using System.Web.UI.WebControls;
+using System.Data.SqlClient;
+
+namespace OnlineOrderingMarketingSystem
+{
+    public partial class EditProduct : System.Web.UI.Page
+    {
+        DAT dat;
+
+        protected void Page_Load(object sender, EventArgs e)
+        {
+            dat = new DAT();
+
+            dat.Open();
+            if (!IsPostBack)
+            {
+                SqlDataReader sdr = dat.GetProduct();
+                GridViewProd.DataSource = sdr;
+                GridViewProd.DataBind();
+                sdr.Close();
+
+            }
+            dat.Close();
+        }
+
+        protected void btnEditProd_Click(object sender, EventArgs e)
+        {
+            dat.Open();
+            if (GridViewProd.SelectedIndex > -1)
+            {
+                if (txtProdName.Text.Length > 0 && txtProdName.Text.Length >= 3 && txtPrice.Text.Length >= 1 && 
+                    DropDownDay.SelectedValue != "00" && DropDownMonth.SelectedValue != "00" && DropDownYear.SelectedValue != "0000")
+                {
+                    dat.EditProduct(txtProdName.Text, int.Parse(txtPrice.Text), int.Parse(DropDownDay.Text),
+                    int.Parse(DropDownMonth.Text), int.Parse(DropDownYear.Text), Convert.ToInt16(GridViewProd.SelectedRow.Cells[1].Text));
+
+                    txtProdName.Text = "";
+                    txtPrice.Text = "";
+                    DropDownDay.SelectedValue = "";
+                    DropDownMonth.SelectedValue = "";
+                    DropDownYear.SelectedValue = "";
+
+
+                    SqlDataReader sdr = dat.GetProduct();
+                    GridViewProd.DataSource = sdr;
+                    GridViewProd.DataBind();
+                    sdr.Close();
+
+                    MessageBoxShow(this, "Product successfully updated!");
+                }
+                else
+                {
+                    MessageBoxShow(this, "Error!");
+                }
+            }
+            else
+                MessageBoxShow(this, "Please select a data in the DataGrid");
+            dat.Close();
+
+
+        }
+        private void MessageBoxShow(Page page, string message)
+        {
+            Literal ltr = new Literal();
+            ltr.Text = @"<script type='text/javascript'> alert('" + message + "') </script>";
+            page.Controls.Add(ltr);
+        }
+
+        protected void GridViewProd_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            dat.Open();
+
+
+            SqlDataReader sdr = dat.GetProductDetails(Convert.ToInt16(GridViewProd.SelectedRow.Cells[1].Text));
+
+            if (sdr.HasRows)
+            {
+                sdr.Read();
+
+                txtProdName.Text = sdr["product_name"].ToString();
+                txtPrice.Text = sdr["unitprice"].ToString();
+                DropDownDay.SelectedValue = sdr["expiration_day"].ToString();
+                DropDownMonth.SelectedValue = sdr["expiration_month"].ToString();
+                DropDownYear.SelectedValue = sdr["expiration_year"].ToString();
+                
+            }
+            sdr.Close();
+
+            dat.Close();
+        }
+
+        protected void LinkButton1_Click(object sender, EventArgs e)
+        {
+            Response.Redirect("WebForm1.aspx");
+        }
+
+
+    }
+}*/
+}
+
+<div class="row">
+    <div class="col-lg-12">
+        <h1 class="page-header"><i class="fa fa-truck"></i>&nbsp;@Page.Title</h1>
+    </div>
+    <!-- /.col-lg-12 -->
+</div>
+<!-- /.row -->
+
+<div class="row">
+    <div class="col-lg-12">
+        @Html.ValidationSummary("Errors with your submission:", excludeFieldErrors: true, htmlAttributes: null)
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-12">
+
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                <a href="~/Admin/InventoryManagement"><i class="fa fa-arrow-left"></i>&nbsp; Return</a> /
+                Update Product Form
+                <div class="pull-right" title="Product Code">
+                    <span class="label label-danger">#@ProductId</span>
+                </div>
+            </div>
+            <!-- /.panel-heading -->
+            
+            <div class="panel-body">
+                <form id="update-product-form" class="form-horizontal" role="form" method="POST">
+                @AntiForgery.GetHtml()
+                    <div class="form-group">
+                        <label class="col-sm-2 control-label">Product Name:</label>
+                        <div class="col-sm-10">
+                        <input type="text" class="form-control" name="Name" size="50" value="@Name" required />
+                        @* Write any product name validation errors to the page *@
+                        @Html.ValidationMessage("Name")
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="col-sm-2 control-label">Description:</label>
+                        <div class="col-sm-10">
+                        <textarea class="form-control" name="Description" rows="3" required>@Description</textarea>
+                        @* Write any description validation errors to the page *@
+                        @Html.ValidationMessage("Description")
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="col-sm-2 control-label">Category:</label>
+                        <div class="col-sm-10">
+                        <select class="form-control" name="Category" required>
+                            @{
+                              var CategoryQueryString = "SELECT * FROM Products_Category";  
+                             
+                                foreach (var row in db.Query(CategoryQueryString)) {
+                                <option @if(row.Id == CategoryId){<text>selected</text>} value="@row.Id">@row.Name</option>
+                                }
+                             }
+                        </select>
+                        @* Write any category validation errors to the page *@
+                        @Html.ValidationMessage("Category")
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="col-sm-2 control-label">Unit Price:</label>
+                        <div class="col-sm-10">
+                       <input type="number" class="form-control" name="Price" value="@Convert.ToSingle(Price).ToString("G")" min="1" required />
+                        @* Write any price validation errors to the page *@
+                        @Html.ValidationMessage("Price")
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="col-sm-2 control-label">Alert me if stock is in Critical Level:</label>
+                        <div class="col-sm-9">
+                            <div class="btn-group" data-toggle="buttons">
+                              <label class="btn @if(!AlertOnStock){<text>btn-danger active</text>}else{<text>btn-default</text>}">
+                                <input type="radio" name="AlertOnStock" value="false" required @if(!AlertOnStock){<text>checked</text>} /> No
+                              </label>
+                              <label class="btn @if(AlertOnStock){<text>btn-success active</text>}else{<text>btn-default</text>}">
+                                <input type="radio" name="AlertOnStock" value="true" required @if(AlertOnStock){<text>checked</text>} /> Yes
+                              </label>
+                            </div>
+                        @* Write any price validation errors to the page *@
+                        @Html.ValidationMessage("AlertOnStock")
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="col-sm-2 control-label">Critical Level:</label>
+                        <div class="col-sm-10">
+                        <input type="number" class="form-control" name="CriticalLevel" value="@Convert.ToSingle(CriticalLevel).ToString("G")" required />
+                        @Html.ValidationMessage("CriticalLevel")
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <!-- /.panel-body -->
+
+            <div class="panel-footer">
+                <div class="text-right">
+                    <button type="submit" class="btn btn-primary" form="update-product-form">Save Changes</button>
+                </div>
+            </div>
+        </div>
+        <!-- /.panel -->
+    </div>
+    <!-- /.col-lg-12 -->
+</div>
+<!-- /.row -->

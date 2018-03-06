@@ -1,0 +1,152 @@
+﻿@* Render this page's scripts *@
+@section Scripts {
+    <script src="~/Scripts/jquery.validate.min.js"></script>
+    <script src="~/Scripts/jquery.validate.unobtrusive.min.js"></script>
+}
+
+@{
+    Layout = "~/_SiteLayout.cshtml";
+    Page.Title = "Log in";
+    
+    // Initialize general page variables
+    var email = "";
+    var password = "";
+    var rememberMe = false;
+    
+    // Handles cart checkout redirect
+    var db = Database.Open("tierone");
+    var cartId = Request.QueryString["checkout"];
+    var commandText = "SELECT * FROM Cart WHERE CartId=@0";
+    var cart = db.QuerySingle(commandText, cartId);
+
+    var returnUrl = Request.QueryString["ReturnUrl"];
+    if (returnUrl.IsEmpty()) {
+
+        // For login with checkout redirects
+        if (cartId != null) {
+            returnUrl = Href("~/?ContinueCheckout="+cartId);
+        } else { // Normal login
+            // Some external login providers always require a return URL value
+            returnUrl = Href("~/");
+        }
+    }
+
+    // Setup validation
+    Validation.RequireField("email", "You must specify an email address.");
+    Validation.RequireField("password", "You must specify a password.");
+    Validation.Add("password",
+        Validator.StringLength(
+            maxLength: Int32.MaxValue,
+            minLength: 6,
+            errorMessage: "Password must be at least 6 characters"));
+
+    // If this is a POST request, validate and process data
+    if (IsPost) {
+        AntiForgery.Validate();
+        // is this an external login request?
+        string provider = Request.Form["provider"];
+        if (!provider.IsEmpty()) {
+            OAuthWebSecurity.RequestAuthentication(provider, Href("~/Account/RegisterService", new { returnUrl }));
+            return;
+        } else if (Validation.IsValid()) {
+            email = Request.Form["email"];
+            password = Request.Form["password"];
+            rememberMe = Request.Form["rememberMe"].AsBool();
+
+            if (WebSecurity.UserExists(email) && WebSecurity.GetPasswordFailuresSinceLastSuccess(email) > 4 && WebSecurity.GetLastPasswordFailureDate(email).AddSeconds(60) > DateTime.UtcNow) {
+                Response.Redirect("~/Account/AccountLockedOut");
+                return;
+            }
+
+            // Attempt to log in using provided credentials
+            if (WebSecurity.Login(email, password, rememberMe)) {
+                
+                /* acitivity logging */
+                db.Execute("INSERT INTO activity_log (UserId, Action, Date) VALUES (@0, @1, @2)", WebSecurity.GetUserId(email), "Login", DateTime.Now);
+                
+                Context.RedirectLocal(returnUrl);
+                return;
+
+            } else {
+
+                ModelState.AddFormError("The user name or password provided is incorrect.");
+
+            }
+        }
+    }
+}
+
+@if(cart != null) {
+<div class="row">
+    <div class="col-md-12">
+        <div class="alert alert-info">
+            <i class="fa fa-lock fa-lg"></i>&nbsp;&nbsp;Please Login your account to continue to checkout product, or Register if you don't have one.
+            <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
+        </div>
+    </div>
+</div>
+}
+
+<hgroup class="title">
+    <h1>@Page.Title</h1>
+</hgroup>
+
+<div class="row">
+
+    <div class="col-md-6">
+        <section class="well" id="socialLoginForm">
+            @RenderPage("~/Account/_ExternalLoginsList.cshtml")
+        </section>
+    </div>
+
+    <div class="col-md-6">
+<section id="loginForm">
+    <form method="post" role="form">
+        @AntiForgery.GetHtml()
+        @* If one or more validation errors exist, show an error *@
+        @if(!ModelState.IsValid) {
+            <div class="alert alert-danger">
+                <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
+                Your password or email is invalid.
+            </div>
+        }
+        
+        <fieldset>
+            <legend>Account Login</legend>
+            
+             <div class="form-group @if(!ModelState.IsValidField("email")){<text>has-error has-feedback</text>}">
+                    <label for="email">Email address</label>
+                    <input type="email" class="form-control " name="email" value="@email" autofocus="true" />
+                    @if(!ModelState.IsValidField("email")){<span class="glyphicon glyphicon-remove form-control-feedback"></span>}
+                    @* Write any user name validation errors to the page *@
+                    <span class="text-muted">@Html.ValidationMessage("email")</span>
+            </div>
+
+            <div class="form-group @if(!ModelState.IsValidField("password")){<text>has-error has-feedback</text>}">
+                    <label for="password">Password</label>
+                    <input type="password" class="form-control" name="password" />
+                    @if(!ModelState.IsValidField("email")){<span class="glyphicon glyphicon-remove form-control-feedback"></span>}
+                    @* Write any password validation errors to the page *@
+                    <span class="text-muted">@Html.ValidationMessage("password")</span>
+            </div>
+
+            <div class="checkbox">
+                <label>
+                    <input type="checkbox" name="rememberMe" value="true" checked="@rememberMe" />
+                    Remember me
+                </label>
+            </div>
+            
+            <button type="submit" class="btn btn-primary">
+                <i class="fa fa-sign-in fa-lg"></i>&nbsp;&nbsp;Log in
+            </button>
+        </fieldset>
+    </form>
+    <br />
+    <p>
+        <a href="~/Account/Register">Don't have a Account?</a>&nbsp;
+        <a href="~/Account/ForgotPassword">Did you forget your password?</a>
+    </p>
+</section>
+    </div>
+</div><!-- end of /.row -->

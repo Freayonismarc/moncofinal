@@ -1,0 +1,63 @@
+﻿@{
+    Page.Title = "Review Your Cart";
+    
+    if(Request.Cookies["cart"] == null) {
+        Response.Redirect("~/");
+    }
+
+    var db = Database.Open("tierone");
+    var cartId = Request.Cookies["cart"].Value.AsInt();
+    var commandText = string.Empty;
+    
+    if(IsPost){
+        commandText = "DELETE FROM CartItems WHERE CartItemId = @0";
+        db.Execute(commandText, Request["cartItem"]);
+    }
+
+    commandText = @"SELECT p.ID, p.Name, c.Quantity, c.Price,  c.Quantity * c.Price AS Total, c.CartItemId
+                        FROM CartItems c INNER JOIN Products p 
+                        ON c.ProductId = p.Id WHERE c.CartId = @0";
+    var cartItems = db.Query(commandText, cartId);
+    var grid = new WebGrid(cartItems, canPage: false, canSort: false);
+    var cartTotal = cartItems.Sum(t => (decimal)t.Total);
+    var currency=(System.Globalization.NumberFormatInfo)System.Threading.Thread.CurrentThread.CurrentCulture.NumberFormat.Clone();
+    currency.CurrencySymbol="Php ";
+}
+
+@if(cartItems.Count() > 0) {
+
+<h2>Thank you! Please pay now to complete your purchase.</h2>
+
+<div id="grid" class="table-responsive animated fadeIn">
+@grid.GetHtml(
+    columns: grid.Columns( 
+        grid.Column("Name", "Product Name", format: @<a href="~/Order/@item.ID">@item.Name</a>),
+        grid.Column("Quantity"),
+        grid.Column("Price", "Unit Price", format: @<text>@item.Total.ToString("C",currency)</text>),
+        grid.Column("Price", "Total Price", format: @<text>@item.Total.ToString("C",currency)</text>),
+        grid.Column("", format: @<form method="post">
+                                <input type="hidden" value="@item.CartItemId" name="cartItem" />
+                                <input type="submit" class="btn btn-danger" value="Remove" />
+                                </form>)
+    )
+)
+
+<a class="btn btn-primary" href="~/CheckoutCart?CartId=@cartId">Pay Now</a>
+</div>
+
+} else {
+    <text><h2>Your Shopping Cart is empty.</h2></text>
+}
+
+@section scripts{
+<script>
+    $(function () {
+        $("#grid table").addClass("table table-striped table-bordered"); 
+        
+        var html = '<tfoot><tr><td colspan="3"><strong>Total</strong></td><td>';
+        html += '<strong>@cartTotal.ToString("C", currency)</strong>'
+        html += '</td><td colspan="2">&nbsp;</td></tr></tfoot>';
+        $('table').append(html);
+    });
+</script>
+}

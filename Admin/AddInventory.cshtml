@@ -1,0 +1,136 @@
+﻿@{
+    Layout = "~/_AdminLayout.cshtml";
+    Page.Title = "Inventory Management / Add Product Inventory";
+
+    Validation.RequireField("Quantity", "Quantity of product is required.");
+    Validation.RequireField("DateExpired", "When will be the expiration of this Product?");
+    Validation.RequireField("CriticalLevel", "Critical Level is required.");
+   
+    var ProductName = "";
+    int Quantity;
+    DateTime DateExpired;
+    var Note = "";
+    int CriticalLevel;
+
+    var ProductId  = UrlData[0];
+
+    if (ProductId.IsEmpty()) {
+         Response.Redirect("~/Admin/InventoryManagement");
+    }
+
+    var db = Database.Open("tierone");
+
+    if (IsPost && Validation.IsValid()) {
+
+        try {
+            AntiForgery.Validate();
+        }
+        catch(Exception ex) {
+            ModelState.AddFormError(ex.Message);
+        }
+     
+        if(ModelState.IsValid) {
+            Quantity = Convert.ToInt32(Request.Form["Quantity"]);
+            DateExpired = Convert.ToDateTime(Request.Form["DateExpired"]);
+            Note = Request["Note"];
+            CriticalLevel = Convert.ToInt32(Request.Form["CriticalLevel"]);
+
+            var insertQuery = "INSERT INTO Products_Inventory (ProductId, Quantity, DateExpired, DateReceived, Remarks) " +
+                "VALUES (@0, @1, @2, @3, @4)";
+            var insert2="INSERT INTO Products(Id,CriticalLevel) VALUES(@0,@1)";
+            db.Execute(insertQuery, ProductId, Quantity, DateExpired, DateTime.Now, Note);
+            db.Execute(insert2,ProductId,CriticalLevel);
+            // Redirect user to Inventory Management Default Page
+            Response.Redirect("~/Admin/InventoryManagement");
+        }
+
+
+    } else {
+        var selectQueryString = "SELECT * FROM Products WHERE Id=@0";
+        var row = db.QuerySingle(selectQueryString, ProductId);
+
+        ProductName = row.Name;
+    }
+}
+
+<div class="row">
+    <div class="col-lg-12">
+        <h1 class="page-header"><i class="fa fa-truck"></i>&nbsp;@Page.Title</h1>
+    </div>
+    <!-- /.col-lg-12 -->
+</div>
+<!-- /.row -->
+
+<div class="row">
+    <div class="col-lg-12">
+        @Html.ValidationSummary("Errors with your submission:", excludeFieldErrors: true, htmlAttributes: null)
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-12">
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                <a href="~/Admin/InventoryManagement"><i class="fa fa-arrow-left"></i>&nbsp; Return</a> /
+                Add Product Inventory Form
+                <div class="pull-right" title="Product Code">
+                    <span class="label label-danger">#@ProductId</span>
+                </div>
+            </div>
+            <!-- /.panel-heading -->
+            
+            <div class="panel-body">
+                <form id="add-inventory-form" class="form-horizontal" role="form" method="POST">
+                @AntiForgery.GetHtml()
+                    <div class="form-group">
+                        <label class="col-sm-2 control-label">Product Name:</label>
+                        <div class="col-sm-10">
+                            <p class="form-control-static">@ProductName</p>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="col-sm-2 control-label">Quantity:</label>
+                        <div class="col-sm-10">
+                        <input type="number" class="form-control" name="Quantity" min="1" placeholder="Number of Product e.g. 10" required />
+                            @Html.ValidationMessage("Quantity")
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="col-sm-2 control-label">Critical Level:</label>
+                        <div class="col-sm-10">
+                        <input type="number" class="form-control" name="CriticalLevel" min="1" placeholder="Critical Level of Product e.g. 20" required />
+                            @Html.ValidationMessage("CriticalLevel")
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="col-sm-2 control-label">Date of Expiration:</label>
+                        <div class="col-sm-10">
+                        <input type="date" class="form-control" name="DateExpired" placeholder="Date of Expiration" required />
+                            @Html.ValidationMessage("DateExpired")
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="col-sm-2 control-label">Notes:</label>
+                        <div class="col-sm-10">
+                            <textarea class="form-control" name="Note" placeholder="Create note about this..." required></textarea>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <!-- /.panel-body -->
+
+            <div class="panel-footer">
+                <div class="text-right">
+                    <button type="submit" class="btn btn-primary" form="add-inventory-form">Submit</button>
+                </div>
+            </div>
+        </div>
+        <!-- /.panel -->
+    </div>
+    <!-- /.col-lg-12 -->
+</div>
+<!-- /.row -->

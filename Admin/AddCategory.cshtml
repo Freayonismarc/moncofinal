@@ -1,0 +1,95 @@
+﻿@{
+    Layout = "~/_AdminLayout.cshtml";
+    Page.Title = "Inventory Management / Add Category";
+
+    Validation.RequireField("Name", "Product name is required.");
+    Validation.RequireField("Description", "Product description is required.");
+
+    var name = "";
+    var description = "";
+    
+    var db = Database.Open("tierone");
+    <!-- ## -->
+    name = Request.Form["Name"];
+    description = Request.Form["Description"];
+
+    if (IsPost && Validation.IsValid()) {
+
+        try {
+            AntiForgery.Validate();
+        }
+        catch(Exception ex) {
+            ModelState.AddFormError(ex.Message);
+        }
+     
+        if(ModelState.IsValid) {
+            // Define the insert query. The values to assign to the
+            // columns in the Product table are defined as parameters
+            // with the VALUES keyword.
+            var insertQuery = "INSERT INTO Products_Category (Name, Description) " +
+                "VALUES (@0, @1)";
+            db.Execute(insertQuery, name, description);
+            // Display the page that lists products.
+            Response.Redirect("~/Admin/InventoryManagement");
+        } 
+    }     
+}
+
+<div class="row">
+    <div class="col-lg-12">
+        <h1 class="page-header"><i class="fa fa-truck"></i>&nbsp;@Page.Title</h1>
+    </div>
+    <!-- /.col-lg-12 -->
+</div>
+<!-- /.row -->
+
+<div class="row">
+    <div class="col-lg-12">
+        @Html.ValidationSummary("Errors with your submission:", excludeFieldErrors: true, htmlAttributes: null)
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-12">
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                <a href="~/Admin/InventoryManagement"><i class="fa fa-arrow-left"></i>&nbsp; Return</a> /
+                Add Category Form
+            </div>
+            <!-- /.panel-heading -->
+            
+            <div class="panel-body">
+                <form id="add-category-form" class="form-horizontal" role="form" method="POST">
+                @AntiForgery.GetHtml()
+                    <div class="form-group">
+                        <label class="col-sm-2 control-label">Category Name:</label>
+                        <div class="col-sm-10">
+                        <input type="text" class="form-control" name="Name" required />
+                        @* Write any product name validation errors to the page *@
+                        @Html.ValidationMessage("Name")
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="col-sm-2 control-label">Description:</label>
+                        <div class="col-sm-10">
+                        <textarea class="form-control" name="Description" rows="3" required></textarea>
+                        @* Write any description validation errors to the page *@
+                        @Html.ValidationMessage("Description")
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <!-- /.panel-body -->
+
+            <div class="panel-footer">
+                <div class="text-right">
+                    <button type="submit" class="btn btn-primary" form="add-category-form">Submit</button>
+                </div>
+            </div>
+        </div>
+        <!-- /.panel -->
+    </div>
+    <!-- /.col-lg-12 -->
+</div>
+<!-- /.row -->

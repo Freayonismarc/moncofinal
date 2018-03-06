@@ -1,0 +1,112 @@
+﻿@{
+    Page.Title = "Home";
+
+    // Using database helper
+    var db = Database.Open("tierone");
+    var products = db.Query("SELECT * FROM PRODUCTS").ToList();
+    
+    // Temporary: showing reviews
+    Random random = new Random();
+    var randomNumberReviews = 5;
+
+    // Handles redirection of user cart checkout
+    if (WebSecurity.IsAuthenticated && Request.QueryString["ContinueCheckout"] != null) {
+        Response.Redirect("~/CheckoutCart?CartId="+Request.QueryString["ContinueCheckout"].AsInt());
+    }
+}
+
+        <div class="row">
+
+            <div class="col-md-12">
+                <div class="row">
+                @if(products.Count == 0) {
+                    // Message for administrator
+                    if(WebSecurity.IsAuthenticated && Roles.IsUserInRole("admin")) {
+                    <div class="col-md-12">
+                        <div class="jumbotron">
+                        <h3>Hello, @WebSecurity.CurrentUserName!</h3>
+                        <p>As of yet we don't have any product to list which is not good for us, start adding now by click the button below.</p>
+                        <a href="~/Admin/AddProduct" class="btn btn-primary btn-lg" role="button">Learn more</a>
+                        </div>
+                    </div>
+                    // Message non-administrator
+                    } else {
+                    <div class="col-md-12">
+                        <div class="alert alert-warning">
+                            <h4>Welcome to Monco MDC, We are currently in the midst of migrating our product & services online.</h4>
+                            <p>Please have patience while we upload our product information, Thank you for always patronizing the Monco MDC</p>
+                        </div>
+                    </div>                        
+                    }
+                }
+                @foreach (var row in products) {
+                   
+                   var images = db.QuerySingle("SELECT FileTitle, FileExtension FROM Products_Image WHERE ForProductId=@0", row.Id);
+
+                <div class="col-xs-12 col-md-3">
+                    <div class="thumbnail">
+
+                            <div class="thumbnail-container">
+                            @if(images == null) { 
+                                <img src="http://placehold.it/252x130" alt="Sample Image" />
+                            } else {
+                                <a class="image-popup-no-margins" href="~/Uploaded/@images.FileTitle@images.FileExtension" title="@row.Description">
+                                <img class="image-popup-no-margins" src="~/Uploaded/@images.FileTitle@images.FileExtension" alt="@images.FileTitle + @images.FileExtension" />
+                                </a>
+                            }
+                            </div>
+
+                            <div class="caption">
+                                    @{
+                                    // Handles long product name and display it nicely without cutting the text
+                                    string productName = row.Name;
+
+                                    if (productName.Length > 30) {
+                                        productName = productName.Substring(0, 30);
+                                        int index = productName.LastIndexOf(' ');
+                                        productName = productName.Substring(0, index) + "...";
+                                    }
+                                    
+                                    }
+                                <h4><a href="~/order/@row.Id">@productName</a>
+                                </h4>
+                                <p class="text-justify">@row.Description</p>
+                            </div>
+
+                            <!--<div class="ratings">
+                                <p class="pull-right">@(randomNumberReviews + random.Next(5,50)) reviews</p>
+                                    <p>
+                                        <span class="fa fa-star"></span>
+                                        <span class="fa fa-star"></span>
+                                        <span class="fa fa-star"></span>
+                                        <span class="fa fa-star"></span>
+                                        <span class="fa fach-star"></span>
+                                    </p>
+                            </div>-->
+                            <div
+                              class="fb-like"
+                              data-share="true"
+                              data-width="450"
+                              data-show-faces="true">check
+                            </div>
+                            <div class="row">
+                                <div class="col-sm-7">
+                                    <a class="btn btn-primary btn-sm" href="~/order/@row.Id" title="Order @row.Name">
+                                    <span class="fa fa-shopping-cart fa-lg"></span>&nbsp;
+                                    Buy Now</a>
+                                </div>
+                                <div class="col-sm-5">
+                                    <h4 class="text-right">@string.Format("Php "+"{0:n}", row.Price)</h4>
+                                </div>
+                            </div>
+                    </div>
+                </div>
+                }
+
+                </div>
+
+            </div> <!-- end of /.col-md-12 -->
+
+ 
+
+        </div> <!-- end of main row class -->

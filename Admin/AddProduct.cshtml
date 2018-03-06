@@ -1,0 +1,257 @@
+﻿@{
+    Layout = "~/_AdminLayout.cshtml";
+    Page.Title = "Inventory Management / Add Product";
+
+    var db = Database.Open("tierone");
+    var selectQueryString = "SELECT * FROM Products_Category";
+
+    Validation.RequireField("Name", "Product name is required.");
+    Validation.RequireField("Description", "Product description is required.");
+    Validation.RequireField("Category", "Product category is required.");
+    Validation.RequireField("Price", "Product price is required.");
+
+    // Initialize global variables for this page
+    var name = "";
+    var category = "";
+    var description = "";
+    var price = Decimal.Zero;
+
+    // Handles image variables
+    WebImage photo = null;
+    var newImageName = "";
+    var imagePath = "";
+    
+    if (IsPost && Validation.IsValid()) {
+
+        try {
+            AntiForgery.Validate();
+        }
+        catch(Exception ex) {
+            ModelState.AddFormError(ex.Message);
+        }
+     
+        if(ModelState.IsValid) {
+            // Assign form data into variables
+            name = Request.Form["Name"];
+            description = Request.Form["Description"];
+            category = Request.Form["Category"];
+            price = Request.Form["Price"].AsDecimal();
+
+            // Define the insert query. The values to assign to the
+            // columns in the Product table are defined as parameters
+            // with the VALUES keyword.
+            var insertQuery = "INSERT INTO Products (Name, Description, Price, CategoryId) " +
+                "VALUES (@0, @1, @2, @3)";
+            db.Execute(insertQuery, name, description, price, category);
+            int lastProductId;
+            lastProductId = (int)db.GetLastInsertId();
+
+            photo = WebImage.GetImageFromRequest();
+            if(photo != null) {
+                
+                if (photo.ImageFormat == "jpeg" || photo.ImageFormat == "png" || photo.ImageFormat == "gif") {
+
+                // Handles the physical transfer of image                
+                newImageName = Guid.NewGuid().ToString() + "_" +
+                    Path.GetFileName(photo.FileName);
+                imagePath = @"Uploaded\" + newImageName;
+                photo.Save(@"~\" + imagePath);
+
+                // Handles the inserting of information into database
+                var fileFormat = photo.ImageFormat;
+                var fileTitle = Path.GetFileNameWithoutExtension(photo.FileName).Trim();
+                if (fileTitle.IsEmpty())
+                {
+                    fileTitle = "Untitled";
+                }
+                var fileExtension = Path.GetExtension(photo.FileName).Trim();
+                var fileBytes = photo.GetBytes().Length / 1024;
+                
+                var insertImageQuery = "INSERT INTO Products_Image (FileTitle, ContentType, FileExtension, FileSize, UploadedDate, UploaderUserId, ForProductId) " + 
+                    "VALUES (@0, @1, @2, @3, @4, @5, @6)";
+                db.Execute(insertImageQuery, fileTitle, fileFormat, fileExtension, fileBytes, DateTime.UtcNow, WebSecurity.CurrentUserId, lastProductId);
+                
+                }
+            }
+            // Redirect back to Inventory List
+            Response.Redirect("~/Admin/InventoryManagement");
+        }
+        
+        ModelState.AddFormError("Check you product form data");
+    }
+    
+    //AP
+    /*using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+using System.Web.UI;
+using System.Web.UI.WebControls;
+using System.Data.SqlClient;
+
+namespace OnlineOrderingMarketingSystem
+{
+    public partial class AddProduct : System.Web.UI.Page
+    {
+        DAT dat;
+
+        protected void Page_Load(object sender, EventArgs e)
+        {
+            dat = new DAT();
+
+            dat.Open();
+            if (!IsPostBack)
+            {
+                SqlDataReader sdrGetInventory = dat.ViewInventory();
+                GridViewInventory.DataSource = sdrGetInventory;
+                GridViewInventory.DataBind();
+                sdrGetInventory.Close();          
+            }
+            dat.Close();
+
+        }
+
+        private void MessageBoxShow(Page page, string message)
+        {
+            Literal ltr = new Literal();
+            ltr.Text = @"<script type='text/javascript'> alert('" + message + "') </script>";
+            page.Controls.Add(ltr);
+        }
+
+        protected void btnAddProd_Click(object sender, EventArgs e)
+        {
+            dat.Open();
+
+            if (txtProdName.Text.Length <= 1)
+            {
+                MessageBoxShow(this, "Please input a/proper product name!");
+                txtProdName.Text = "";
+            }
+            if (txtPrice.Text.Length <= 0)
+            {
+                MessageBoxShow(this, "Please input a/proper price!");
+                txtPrice.Text = "";
+            }
+
+            if (txtProdName.Text.Length >= 3 && DropDownDay.SelectedValue != "00"
+                && DropDownMonth.SelectedValue != "00" && DropDownYear.SelectedValue != "0000"
+                && txtQuant.Text.Length >= 1 && txtDescription.Text.Length >= 5)
+            {
+                dat.AddInventory(int.Parse(txtQuant.Text), txtDescription.Text);
+                txtQuant.Text = "";
+                txtDescription.Text = "";
+
+                dat.AddProduct(txtProdName.Text, int.Parse(txtPrice.Text), int.Parse(DropDownDay.Text),
+                    int.Parse(DropDownMonth.Text), int.Parse(DropDownYear.Text));
+                txtProdName.Text = "";
+                txtPrice.Text = "";
+                DropDownDay.SelectedValue = "";
+                DropDownMonth.SelectedValue = "";
+                DropDownYear.SelectedValue = "";
+
+                MessageBoxShow(this, "Product Added to Inventory Successfully!");
+                Page.Response.Redirect(Page.Request.Url.ToString(), true);
+            }
+            else
+            {
+                MessageBoxShow(this, "Error!");
+            }
+
+            dat.Close();
+        }
+
+        protected void LinkButton1_Click(object sender, EventArgs e)
+        {
+            Response.Redirect("WebForm1.aspx");
+        }
+    }
+}*/     
+}
+
+<div class="row">
+    <div class="col-lg-12">
+        <h1 class="page-header"><i class="fa fa-truck"></i>&nbsp;@Page.Title</h1>
+    </div>
+    <!-- /.col-lg-12 -->
+</div>
+<!-- /.row -->
+
+<div class="row">
+    <div class="col-lg-12">
+        @Html.ValidationSummary(excludeFieldErrors: true)
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-12">
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                <a href="~/Admin/InventoryManagement"><i class="fa fa-arrow-left"></i>&nbsp; Return</a> /
+                Add Product Form
+            </div>
+            <!-- /.panel-heading -->
+            
+            <div class="panel-body">
+                <form id="add-product-form" class="form-horizontal" role="form" method="POST" enctype="multipart/form-data">
+                @AntiForgery.GetHtml()
+                    <div class="form-group">
+                        <label class="col-sm-2 control-label">Product Name:</label>
+                        <div class="col-sm-10">
+                        <input type="text" class="form-control" name="Name" required />
+                        @* Write any product name validation errors to the page *@
+                        @Html.ValidationMessage("Name")
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="col-sm-2 control-label">Description:</label>
+                        <div class="col-sm-10">
+                        <textarea class="form-control" name="Description" rows="3" required></textarea>
+                        @* Write any description validation errors to the page *@
+                        @Html.ValidationMessage("Description")
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="col-sm-2 control-label">Category:</label>
+                        <div class="col-sm-10">
+                        <select class="form-control" name="Category" required>
+                            @foreach (var row in db.Query(selectQueryString)) {
+                                <option value="@row.Id">@row.Name</option>
+                            }
+                        </select>
+                        @* Write any category validation errors to the page *@
+                        @Html.ValidationMessage("Category")
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="col-sm-2 control-label">Unit Price:</label>
+                        <div class="col-sm-10">
+                        <input type="number" class="form-control" name="Price" required />
+                        @* Write any price validation errors to the page *@
+                        @Html.ValidationMessage("Price")
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="col-sm-2 control-label">Product Image:</label>
+                        <div class="col-sm-10">
+                        <input type="file" class="form-control" name="Image" required />
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <!-- /.panel-body -->
+
+            <div class="panel-footer">
+                <div class="text-right">
+                    <button type="submit" class="btn btn-primary" form="add-product-form">Submit</button>
+                </div>
+            </div>
+        </div>
+        <!-- /.panel -->
+    </div>
+    <!-- /.col-lg-12 -->
+</div>
+<!-- /.row -->

@@ -1,0 +1,28 @@
+﻿@{
+    // Set the layout page and page title
+    Layout = "~/_SiteLayout.cshtml";
+    Page.Title = "Check your inbox!";
+}
+
+@if (!WebSecurity.IsAuthenticated) {
+    <hgroup class="title">
+        <h1>@Page.Title.</h1>
+        <h2>But you're not done yet</h2>
+    </hgroup>
+
+    <p class="text-success">
+        <i class="fa fa-flag fa-lg"></i>&nbsp;
+        An email with instructions on how to activate your account is on its way to you.
+    </p>
+
+} else {
+    <hgroup class="title">
+        <h1>@Page.Title</h1>
+        <h2>You are all set</h2>
+    </hgroup>
+
+    <p class="text-success">
+        <i class="fa fa-flag fa-lg"></i>&nbsp;
+        It looks like you've already confirmed your account and are good to go.
+    </p>
+}

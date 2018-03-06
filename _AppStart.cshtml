@@ -1,0 +1,316 @@
+﻿@{
+    WebSecurity.InitializeDatabaseConnection("tierone", "UserProfile", "UserId", "Email", false);
+    
+    // To let users of this site log in using their accounts from other sites such as Microsoft, Facebook, Twitter,
+    // you must update this site. For more information visit http://go.microsoft.com/fwlink/?LinkID=226949
+
+    //OAuthWebSecurity.RegisterMicrosoftClient(
+    //    clientId: "",
+    //    clientSecret: "");
+
+    //OAuthWebSecurity.RegisterTwitterClient(
+    //    consumerKey: "",
+    //    consumerSecret: "");
+
+    OAuthWebSecurity.RegisterFacebookClient(
+          appId: "1706209886276032",
+          appSecret: "0bf4cc1aa904e531b3075c32f9461f90");
+
+    // Add the PublicKey and PrivateKey strings with your public
+    // and private keys. Obtain your PublicKey and PrivateKey
+    // at the ReCaptcha.Net (http://recaptcha.net) website.
+    //ReCaptcha.PublicKey = "6Lc-0u8SAAAAAJ7OEiatYAY0sA9lZ1hbQAWaEsBs";
+    //ReCaptcha.PrivateKey = "6Lc-0u8SAAAAAF-1uiUDJEuj4wsmJzeadZVoZPiR";
+
+    OAuthWebSecurity.RegisterGoogleClient();
+
+    // smtpcorp.com | SMTP2GO
+    WebMail.SmtpServer = "smtp2go.com";
+    WebMail.EnableSsl = true;
+    WebMail.UserName = "jacinto.marc@gmail.com";
+    WebMail.Password = "09106623958s";
+    WebMail.From = "do-not-reply-admin@monco.com";
+
+    // To learn how to optimize scripts and stylesheets in your site go to http://go.microsoft.com/fwlink/?LinkID=248973
+
+
+    //DAT
+    /*using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+using System.Data.SqlClient;
+using System.Data;
+using System.Configuration;
+using System.IO;
+using System.Web.UI.WebControls;
+using System.Web.UI;
+
+namespace OnlineOrderingMarketingSystem
+{
+    public class DAT
+    {
+        SqlConnection con;
+        string cs = "SERVER=MARCJACINTO-PC\\MARCJACINTOADMIN; DATABASE=ISPROJ2DB;"
+         + " Integrated Security=True";
+
+        public DAT()
+        {
+            con = new SqlConnection(cs);
+        }
+
+        public void Open()
+        {
+            con.Open();
+        }
+
+        public void Close()
+        {
+            con.Close();
+        }
+        #region client
+        public string LogInClient(string email, string password)
+        {
+            string firstname = "";
+            string sqlLogIn = "SELECT email, password, firstname from clients WHERE "
+                + "username='" + email + "' AND "
+                + "password='" + password + "'";
+            SqlCommand com = new SqlCommand(sqlLogIn, con);
+            SqlDataReader sdr = com.ExecuteReader();
+            while (sdr.Read())
+            {
+                firstname = sdr.GetString(2);
+            }
+            return firstname;
+        }
+        public void GetClient(int clientid)
+        {
+            string sqlGet = "SELECT (clientid, lastname, firstname, dateofbirth,"
+                + " address, city, province, postalcode, email, registered_date) from clients WHERE"
+                + "clientid='" + clientid + "'";
+            SqlCommand com = new SqlCommand(sqlGet, con);
+            com.ExecuteNonQuery();
+        }
+        public void AddClient(string lastname, string firstname, string dateofbirth,
+            string address, string city, string province, int postalcode, 
+            string email, string password)
+        {
+            string sqlAdd = "INSERT INTO clients (lastname, firstname, dateofbirth, "
+            + "address, city, province, postalcode," 
+            + "email, password, registered_date) VALUES ('" 
+                + lastname + "', '"
+                + firstname + "', '"
+                + dateofbirth + "', '"
+                + address + "', '"
+                + city + "', '"
+                + province + "', '"
+                + postalcode + "', '"
+                + email + "', '"
+                + password + "', '" 
+                + new DateTime() + "')";
+
+            SqlCommand com = new SqlCommand(sqlAdd, con);
+            com.ExecuteNonQuery();
+        }
+
+        public void EditClient(int clientid, string lastname, string firstname, string dateofbirth,
+            string address, string city, string province, int postalcode,
+            string email, string password)
+        {
+            string sqlEdit = "UPDATE clients(lastname, firstname, dateofbirth, "
+            + "address, city, province, postalcode,"
+            + "email, password) SET lastname ='"
+                + lastname + "', firstname='"
+                + firstname + "', dateofbirth='"
+                + dateofbirth + "', address='"
+                + address + "', city='"
+                + city + "', province='"
+                + province + "', postalcode='"
+                + postalcode + "', email='"
+                + email + "', password='"
+                + password + "' WHERE clientid='"
+                + clientid + "'";
+            SqlCommand com = new SqlCommand(sqlEdit, con);
+            com.ExecuteNonQuery();
+        }
+        public void DeleteClient(int clientid)
+        {
+            string sqlDelete = "DELETE from clients where clientid='" + clientid + "'";
+            SqlCommand com = new SqlCommand(sqlDelete, con);
+            com.ExecuteNonQuery();
+        }
+        #endregion
+
+        #region Employee
+        public void GetEmployee(int employee_id)
+        {
+            string sqlGet = "SELECT (employee_id, username, fname, lname, mname,"
+                + "position, department) from employees WHERE"
+                + "employee_id='" + employee_id + "'";
+            SqlCommand com = new SqlCommand(sqlGet, con);
+            com.ExecuteNonQuery();
+        }
+        public string LogInEmployee(string username, string password)
+        {
+            string firstname = "";
+            string sqlLogIn = "SELECT username, password, fname from employees WHERE "
+                + "username='" + username + "' AND "
+                + "password='" + password + "'";
+            SqlCommand com = new SqlCommand(sqlLogIn, con);
+            SqlDataReader sdr = com.ExecuteReader();
+            while (sdr.Read())
+            {
+                firstname = sdr.GetString(2);
+            }
+            return firstname;
+            //return sdr.HasRows;
+        }
+        public void AddEmployee(string username, string fname, string lname, string mname, 
+            string position, string department, string password)
+        {
+           string sqlAdd = "AddEmployee (@username'" + username + "', @fname'"
+                + fname + "', @lname'"
+                + lname + "', @mname'"
+                + mname + "', @position'"
+                + position + "', @department'"
+                + department + "', @password'"
+                + password + "')";
+
+            SqlCommand com = new SqlCommand(sqlAdd, con);
+            com.ExecuteNonQuery();
+        }
+
+        public void EditEmployee(int employee_id, string fname, string username, string lname, string mname,
+            string position, string department, string password)
+        {
+            string sqlEdit = "UPDATE employees(username, fname, lname, mname," +
+                "position, department, password) SET username ='"
+                + username + "', fname='"
+                + fname + "', lname='"
+                + lname + "', mname='"
+                + mname + "', position='"
+                + position + "', department='"
+                + department + "', password='"
+                + password + "' WHERE employee_id='"
+                + employee_id + "'";
+            SqlCommand com = new SqlCommand(sqlEdit, con);
+            com.ExecuteNonQuery();
+        }
+        public void DeleteEmployee(int employee_id)
+        {
+            string sqlDelete = "DELETE from employees where employee_id='" + employee_id + "'";
+            SqlCommand com = new SqlCommand(sqlDelete, con);
+            com.ExecuteNonQuery();
+        }
+        #endregion
+
+        #region Product
+        public SqlDataReader GetProduct()
+        {
+            string sqlGet = "SELECT * from products";
+            SqlCommand com = new SqlCommand(sqlGet, con);
+            SqlDataReader sdr = com.ExecuteReader();
+            return sdr;
+        }
+
+        public SqlDataReader GetProductDetails(int product_id)
+        {
+            string sqlGet = "SELECT * from products WHERE product_id='" + product_id + "'";
+            SqlCommand com = new SqlCommand(sqlGet, con);
+            SqlDataReader sdr = com.ExecuteReader();
+            return sdr;
+        }
+        public void AddProduct(string product_name, int unitprice, int day, int month, int year)
+        {
+            string sqlAdd = "INSERT INTO products (product_name, unitprice, expiration_day, expiration_month, expiration_year) VALUES ('" + product_name + "', '"
+                + unitprice + "', '"
+                + day + "', '"
+                + month + "', '"
+                + year + "')";
+
+            SqlCommand com = new SqlCommand(sqlAdd, con);
+            com.ExecuteNonQuery();
+        }
+        public void EditProduct(string product_name, int unitprice, int day, int month, int year, int product_id)
+        {
+            string sqlEdit = "UPDATE products";
+            sqlEdit += " SET product_name='" + product_name + "', ";
+            sqlEdit += "unitprice=" + unitprice + ", ";
+            sqlEdit += "expiration_day=" + day + ", ";
+            sqlEdit += "expiration_month=" + month + ", ";
+            sqlEdit += "expiration_year=" + year + " ";
+            sqlEdit += "WHERE product_id=" + product_id + "";
+            SqlCommand com = new SqlCommand(sqlEdit, con);
+            com.ExecuteNonQuery();
+        }
+        public void DeleteProduct(int product_id)
+        {
+            string sqlDelete = "DELETE from products where product_id='" + product_id + "'";
+            SqlCommand com = new SqlCommand(sqlDelete, con);
+            com.ExecuteNonQuery();
+        }
+#endregion
+
+        #region inventory
+        public void AddInventory(int quantity, string description)
+        {
+            string sqlAdd = "INSERT INTO inventory (quantity, description) VALUES ('" + quantity+ "', '"
+                + description + "')";
+
+            SqlCommand com = new SqlCommand(sqlAdd, con);
+            com.ExecuteNonQuery();
+        }
+
+        public SqlDataReader GetInventory()
+        {
+            string sqlGet = "SELECT * from inventory";
+            SqlCommand com = new SqlCommand(sqlGet, con);
+            SqlDataReader sdr = com.ExecuteReader();
+            return sdr;
+        }
+
+         public void EditInventory(int quantity, string description, int inventory_id)
+        {
+            string sqlEdit = "UPDATE inventory";
+            sqlEdit += " SET quantity='" + quantity + "', ";
+            sqlEdit += "description='" + description + "' ";
+            sqlEdit += "WHERE product_id='" + inventory_id   + "'";
+            SqlCommand com = new SqlCommand(sqlEdit, con);
+            com.ExecuteNonQuery();
+        }
+         public void DeleteInventory(int inventory_id)
+         {
+             string sqlDelete = "DELETE from inventory where inventory_id='" + inventory_id + "'";
+             SqlCommand com = new SqlCommand(sqlDelete, con);
+             com.ExecuteNonQuery();
+         }
+        #endregion
+
+         public SqlDataReader ViewInventory()
+         {
+             string sqlGet = "SELECT inventory.inventory_id AS [Inventory ID], products.product_id AS [Product ID], products.product_name AS [Product Name], ";
+             sqlGet += "products.unitprice AS [Unit Price], inventory.quantity AS [Quantity], inventory.description AS [Descrption], ";
+             sqlGet += "products.expiration_day AS [Exp Day], products.expiration_month AS [Exp Month], products.expiration_year AS [Exp Year] ";
+             sqlGet += "FROM products INNER JOIN inventory ";
+             sqlGet += "ON products.product_id = inventory.inventory_id ";
+
+             SqlCommand com = new SqlCommand(sqlGet, con);
+             SqlDataReader sdr = com.ExecuteReader();
+             return sdr;
+         }
+
+         public SqlDataReader SearchProduct(string product_name)
+         {
+             string sqlGet = "SELECT products.product_name AS [Product Name], products.unitprice AS [Unit Price], inventory.quantity AS [Quantity], inventory.description AS [Descrption]";
+             sqlGet += "FROM products INNER JOIN inventory ";
+             sqlGet += "ON products.product_id = inventory.inventory_id ";
+             sqlGet += "WHERE products.product_name LIKE '" + product_name + "'";
+
+             SqlCommand com = new SqlCommand(sqlGet, con);
+             SqlDataReader sdr = com.ExecuteReader();
+             return sdr;
+         }
+    }
+}*/
+}
+

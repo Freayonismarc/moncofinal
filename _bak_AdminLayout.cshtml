@@ -1,0 +1,333 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>MONCO MDC - @Page.Title</title>
+        <link href="~/favicon.ico" rel="shortcut icon" type="image/x-icon" />
+        <link href="~/Content/shop-homepage.css" rel="stylesheet" />
+
+        <!-- Core CSS - Include with every page -->
+        <link href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css" rel="stylesheet" /> <!-- Bootstrap CSS -->
+        <!--<link href="http://bootswatch.com/lumen/bootstrap.min.css" rel="stylesheet" /> <!-- Bootstrap Customer theme -->
+
+        <!-- Easy ways to get Font Awesome 4.0.3 onto your website - CDN -->
+        <link href="//netdna.bootstrapcdn.com/font-awesome/4.0.3/css/font-awesome.css" rel="stylesheet" />
+
+        <!-- Page-Level Plugin CSS - Dashboard -->
+        <link href="~/Content/morris-0.4.3.min.css" rel="stylesheet" />
+        <link href="~/Content/timeline.css" rel="stylesheet" />
+        <link href="~/Content/animate.css" rel="stylesheet" />
+        
+        <!-- Page-Level Plugin CSS - Tables -->
+        <link href="~/Content/plugins/dataTables/dataTables.bootstrap.css" rel="stylesheet" />
+
+        <!-- SB Admin CSS - Include with every page -->
+        <link href="~/Content/sb-admin.css" rel="stylesheet">
+
+        <!-- jQuery Core Scripts - Include with every page -->
+        <script src="~/Scripts/jquery-2.1.0.min.js"></script>
+
+        <script src="~/Scripts/modernizr-2.7.2.js"></script>
+        <script src="~/Scripts/jquery.validate.min.js"></script>
+        <script src="~/Scripts/jquery.validate.unobtrusive.min.js"></script>
+
+        <!-- Bootstrap Javajscript - CDN -->
+        <script src="//netdna.bootstrapcdn.com/bootstrap/3.1.1/js/bootstrap.min.js"></script> 
+
+        <!-- Core Scripts - Include with every page -->
+        <script src="~/Scripts/plugins/metisMenu/jquery.metisMenu.js"></script>
+
+        <!-- Page-Level Plugin Scripts - Dashboard -->
+        <!--<script src="~/Scripts/plugins/morris/raphael-2.1.0.min.js"></script>-->
+        <!--<script src="~/Scripts/plugins/morris/morris.js"></script>-->
+
+        <!-- Page-Level Plugin Scripts - Tables -->
+        <script src="~/Scripts/DataTables-1.9.4/media/js/jquery.dataTables.js"></script>
+        <script src="~/Scripts/plugins/dataTables/dataTables.bootstrap.js"></script>
+
+        <!-- SB Admin Scripts - Include with every page -->
+        <script src="~/Scripts/sb-admin.js"></script>
+
+        <!-- Core Scripts - Include wit every page -->
+        <script src="~/Scripts/monco.admin.js"></script>
+
+        @RenderSection("Scripts", required: false)
+    </head>
+    <body class="tooltips">
+        <div id="wrapper">
+        
+        <!-- .navbar-static-top -->
+        <nav class="navbar navbar-default navbar-static-top" role="navigation" style="margin-bottom: 0">
+            <div class="navbar-header">
+                <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".sidebar-collapse">
+                    <span class="sr-only">Toggle navigation</span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                </button>
+                <a class="navbar-brand" href="~/Admin/Admin">Admin Panel - @Page.Title</a>
+            </div>
+            <!-- /.navbar-header -->
+
+            <ul class="nav navbar-top-links navbar-right">
+                <li class="dropdown">
+                    <!-- dropdown-messages
+                    <a class="dropdown-toggle" data-toggle="dropdown" href="#">
+                        <i class="fa fa-envelope fa-fw"></i>
+                        <span class="label label-danger absolute">24</span>
+                    </a>
+                    <ul class="dropdown-menu dropdown-messages animated half flipInX">
+                        @for(var x = 0; x < 3; x++) {
+                        <li>
+                            <a href="#">
+                                <div>
+                                    <strong>John Smith</strong>
+                                    <span class="pull-right text-muted">
+                                        <em>Yesterday</em>
+                                    </span>
+                                </div>
+                                <div>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque eleifend...</div>
+                            </a>
+                        </li>
+                        <li class="divider"></li>
+                        }
+                        <li>
+                            <a class="text-center" href="#">
+                                <strong>Read All Messages</strong>
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+                        </li>
+                    </ul>
+                    -->
+                    <!-- /.dropdown-messages -->
+                </li>
+                <!-- /.dropdown -->
+                <li class="dropdown">
+                    <a class="dropdown-toggle" data-toggle="dropdown" href="#">
+                        <i class="fa fa-tasks fa-fw"></i>
+                        <span class="label label-danger absolute">14</span>
+                    </a>
+                    <ul class="dropdown-menu dropdown-tasks animated half flipInX">
+                        <li>
+                            <a href="#">
+                                <div>
+                                    <p>
+                                        <strong>Task 1</strong>
+                                        <span class="pull-right text-muted">40% Complete</span>
+                                    </p>
+                                    <div class="progress progress-striped active">
+                                        <div class="progress-bar progress-bar-success" role="progressbar" aria-valuenow="40" aria-valuemin="0" aria-valuemax="100" style="width: 40%">
+                                            <span class="sr-only">40% Complete (success)</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </a>
+                        </li>
+                        <li class="divider"></li>
+                        <li>
+                            <a href="#">
+                                <div>
+                                    <p>
+                                        <strong>Task 2</strong>
+                                        <span class="pull-right text-muted">20% Complete</span>
+                                    </p>
+                                    <div class="progress progress-striped active">
+                                        <div class="progress-bar progress-bar-info" role="progressbar" aria-valuenow="20" aria-valuemin="0" aria-valuemax="100" style="width: 20%">
+                                            <span class="sr-only">20% Complete</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </a>
+                        </li>
+                        <li class="divider"></li>
+                        <li>
+                            <a href="#">
+                                <div>
+                                    <p>
+                                        <strong>Task 3</strong>
+                                        <span class="pull-right text-muted">60% Complete</span>
+                                    </p>
+                                    <div class="progress progress-striped active">
+                                        <div class="progress-bar progress-bar-warning" role="progressbar" aria-valuenow="60" aria-valuemin="0" aria-valuemax="100" style="width: 60%">
+                                            <span class="sr-only">60% Complete (warning)</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </a>
+                        </li>
+                        <li class="divider"></li>
+                        <li>
+                            <a href="#">
+                                <div>
+                                    <p>
+                                        <strong>Task 4</strong>
+                                        <span class="pull-right text-muted">80% Complete</span>
+                                    </p>
+                                    <div class="progress progress-striped active">
+                                        <div class="progress-bar progress-bar-danger" role="progressbar" aria-valuenow="80" aria-valuemin="0" aria-valuemax="100" style="width: 80%">
+                                            <span class="sr-only">80% Complete (danger)</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </a>
+                        </li>
+                        <li class="divider"></li>
+                        <li>
+                            <a class="text-center" href="#">
+                                <strong>See All Tasks</strong>
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+                        </li>
+                    </ul>
+                    <!-- /.dropdown-tasks -->
+                </li>
+                <!-- /.dropdown -->
+                <li class="dropdown">
+                    <a class="dropdown-toggle" data-toggle="dropdown" href="#">
+                        <i class="fa fa-bell fa-fw"></i>
+                        <span class="label label-danger absolute">10</span>
+                    </a>
+                    <ul class="dropdown-menu dropdown-alerts animated half flipInX">
+                        <li>
+                            <a href="#">
+                                <div>
+                                    <i class="fa fa-comment fa-fw"></i> New Comment
+                                    <span class="pull-right text-muted small">4 minutes ago</span>
+                                </div>
+                            </a>
+                        </li>
+                        <li class="divider"></li>
+                        <li>
+                            <a href="#">
+                                <div>
+                                    <i class="fa fa-twitter fa-fw"></i> 3 New Followers
+                                    <span class="pull-right text-muted small">12 minutes ago</span>
+                                </div>
+                            </a>
+                        </li>
+                        <li class="divider"></li>
+                        <li>
+                            <a href="#">
+                                <div>
+                                    <i class="fa fa-envelope fa-fw"></i> Message Sent
+                                    <span class="pull-right text-muted small">4 minutes ago</span>
+                                </div>
+                            </a>
+                        </li>
+                        <li class="divider"></li>
+                        <li>
+                            <a href="#">
+                                <div>
+                                    <i class="fa fa-tasks fa-fw"></i> New Task
+                                    <span class="pull-right text-muted small">4 minutes ago</span>
+                                </div>
+                            </a>
+                        </li>
+                        <li class="divider"></li>
+                        <li>
+                            <a href="#">
+                                <div>
+                                    <i class="fa fa-upload fa-fw"></i> Server Rebooted
+                                    <span class="pull-right text-muted small">4 minutes ago</span>
+                                </div>
+                            </a>
+                        </li>
+                        <li class="divider"></li>
+                        <li>
+                            <a class="text-center" href="#">
+                                <strong>See All Alerts</strong>
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+                        </li>
+                    </ul>
+                    <!-- /.dropdown-alerts -->
+                </li>
+                <!-- /.dropdown -->
+                <li class="dropdown">
+                    <a class="dropdown-toggle" data-toggle="dropdown" href="#">
+                        <i class="fa fa-caret-down"></i>
+                    </a>
+                    <ul class="dropdown-menu dropdown-user animated half flipInX">
+                        <li>
+                            <a href="~/">
+                                <i class="fa fa-chevron-circle-left fa-fw"></i>&nbsp; User's Page
+                            </a>
+                        </li>
+                        <li>
+                            <a href="~/Account/Manage"><i class="fa fa-user fa-fw"></i>&nbsp; Profile Settings
+                            </a>
+                        </li>
+                        <li class="divider"></li>
+                        <li>
+                            <form id="logoutForm" action="~/Account/Logout" method="post">
+                            @AntiForgery.GetHtml()
+                            </form>
+                            <a href="javascript:document.getElementById('logoutForm').submit()">
+                            <i class="fa fa-power-off fa-fw"></i>&nbsp; Log off
+                            </a>
+                        </li>
+                    </ul>
+                    <!-- /.dropdown-user -->
+                </li>
+                <!-- /.dropdown -->
+            </ul>
+            <!-- /.navbar-top-links -->
+
+        </nav>
+        <!-- /.navbar-static-top -->
+        
+        <!-- .navbar-static-side -->
+        <nav class="navbar-default navbar-static-side" role="navigation">
+            <div class="sidebar-collapse">
+                <ul class="nav" id="side-menu">
+                    <!--
+                    <li class="sidebar-search">
+                        <div class="input-group custom-search-form">
+                            <input type="text" class="form-control" placeholder="Search...">
+                            <span class="input-group-btn">
+                                <button class="btn btn-default" type="button">
+                                    <i class="fa fa-search"></i>
+                                </button>
+                            </span>
+                        </div>
+                    </li>
+                    --> <!-- /input-group -->
+                    <li>
+                        <a href="~/Admin/Admin"><i class="fa fa-dashboard fa-fw"></i>&nbsp;Dashboard</a>
+                    </li>
+                    <li>
+                       <a href="~/Admin/UserManagement"><i class="fa fa-users"></i>&nbsp;Manage Account</a>
+                    </li>
+                    <li>
+                        <a href="~/Admin/InventoryManagement"><i class="fa fa-truck"></i>&nbsp;Manage Inventory/Product</a>
+                    </li>
+                    <li>
+                        <a href="#"><i class="fa fa-book fa-fw"></i> Logs<span class="fa arrow"></span></a>
+                        <ul class="nav nav-second-level">
+                            <li>
+                                <a href="~/Admin/ActivityLog">View Activity Logs</a>
+                            </li>
+                            <li>
+                                <a href="#">Transaction Logs</a>
+                            </li>
+                        </ul>
+                        <!-- /.nav-second-level -->
+                    </li>
+                </ul>
+                <!-- /#side-menu -->
+            </div>
+            <!-- /.sidebar-collapse -->
+        </nav>
+        <!-- /.navbar-static-side -->
+        
+        <!-- #page-wrapper -->
+        <div id="page-wrapper">
+        @RenderBody()
+        </div>
+        <!-- /#page-wrapper -->
+
+        </div>
+        <!-- /#wrapper -->
+    </body>
+</html>

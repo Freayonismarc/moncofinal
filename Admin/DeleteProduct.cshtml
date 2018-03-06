@@ -1,0 +1,174 @@
+﻿@{
+    Layout = "~/_AdminLayout.cshtml";
+    Page.Title = "Inventory Management / Delete Product";
+    
+    var db = Database.Open("tierone");
+    var ProductId = UrlData[0];
+    
+    if (ProductId.IsEmpty()) {
+        Response.Redirect("~/Admin/InventoryManagement");
+    }
+    
+    var prod = db.QuerySingle("SELECT * FROM Products WHERE Id = @0", ProductId);
+
+    if(IsPost && !ProductId.IsEmpty()) {
+        var deleteQueryString = "DELETE FROM Products WHERE Id=@0";
+        db.Execute(deleteQueryString, ProductId);
+        Response.Redirect("~/Admin/InventoryManagement");
+    }
+
+   //DP
+    /*using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+using System.Web.UI;
+using System.Web.UI.WebControls;
+using System.Data.SqlClient;
+
+namespace OnlineOrderingMarketingSystem
+{
+    public partial class DeleteProduct : System.Web.UI.Page
+    {
+        DAT dat;
+        protected void Page_Load(object sender, EventArgs e)
+        {
+            dat = new DAT();
+            dat.Open();
+            if (!IsPostBack)
+            {
+
+                SqlDataReader sdr = dat.GetProduct();
+                GridViewProd.DataSource = sdr;
+                GridViewProd.DataBind();
+                sdr.Close();
+            }
+            dat.Close();
+
+        }
+        protected void btnDeleteProd_Click1(object sender, EventArgs e)
+        {
+            dat.Open();
+
+            if (GridViewProd.SelectedIndex > 0)
+            {
+                dat.DeleteProduct(Convert.ToInt16(GridViewProd.SelectedRow.Cells[1].Text));
+
+                SqlDataReader sdr = dat.GetProduct();
+                GridViewProd.DataSource = sdr;
+                GridViewProd.DataBind();
+                sdr.Close();
+
+                MessageBoxShow(this, "Product Deleted successfully!");
+            }
+            else
+                MessageBoxShow(this, "Please select a data in the DataGrid");
+            dat.Close();
+        }
+
+        private void MessageBoxShow(Page page, string message)
+        {
+            Literal ltr = new Literal();
+            ltr.Text = @"<script type='text/javascript'> alert('" + message + "') </script>";
+            page.Controls.Add(ltr);
+        }
+
+        protected void LinkButton1_Click(object sender, EventArgs e)
+        {
+            Response.Redirect("WebForm1.aspx");
+        }
+    }
+}*/
+}
+
+<div class="row">
+    <div class="col-lg-12">
+        <h1 class="page-header"><i class="fa fa-truck"></i>&nbsp;@Page.Title</h1>
+    </div>
+    <!-- /.col-lg-12 -->
+</div>
+<!-- /.row -->
+
+<div class="row">
+
+    <div class="col-lg-6">
+        @{
+            /* Get the Category name of this product */
+            var productCategory = db.QueryValue("SELECT Name FROM Products_Category WHERE Id=@0", prod.CategoryId);
+
+            var images = db.QuerySingle("SELECT FileTitle, FileExtension FROM Products_Image WHERE ForProductId=@0", ProductId);
+        }
+
+        <form method="post" id="delete-form">
+
+        <div class="table-responsive">
+        <table class="table table-striped table-bordered table-hover">
+            <thead>
+                <tr>
+                    <th>Product Code</th>
+                    <th>Name</th>
+                    <th>Category</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>@ProductId</td>
+                    <td>@prod.Name</td>
+                    <td>@productCategory</td>
+                </tr>
+                <tr>
+                    <td colspan="3">
+<div class="media">
+  <a class="pull-left" href="#">
+    <img class="img-rounded img-responsive"  src="~/Uploaded/@images.FileTitle@images.FileExtension" alt="@images.FileTitle + @images.FileExtension" width="150px"/>
+  </a>
+  <div class="media-body text-justify">
+    <small>@prod.Description</small>
+  </div>
+</div>
+                        
+                    </td>
+                </tr>
+                <tr>
+                    <td>Price:</td>
+                    <td colspan="2" class="text-right">@string.Format("Php "+"{0:n}", prod.Price)</td>
+                </tr>
+            </tbody>
+        </table>
+        </div>
+
+        </form>      
+    </div>
+
+    <div class="col-lg-6">
+    @{
+        
+        var hasOrder = db.Query("SELECT * FROM Order_Details WHERE ProductId=@0", ProductId);
+
+        if (hasOrder.Count() > 0) {
+          <div class="alert alert-info">
+            <h4><i class="fa fa-exclamation-triangle fa-lg"></i>&nbsp; Unable to Delete Product</h4>
+            <p>It appears that this product has an order details, which means that you cannot remove this from our list.</p>
+            <br />
+            <div class="text-right">
+            <a style="text-decoration: none;" role="button" href="~/Admin/InventoryManagement" class="btn btn-primary">Cancel</a>
+            </div>
+          </div>
+        } else {
+          <div class="alert alert-danger">
+            <h4><i class="fa fa-exclamation-triangle fa-lg"></i>&nbsp; Delete Product - Confirmation</h4>
+            <p>Are you sure you want to delete the following product?</p>
+            <br />
+            <div class="text-right">
+            <button type="submit" class="btn btn-danger" form="delete-form">
+                <i class="fa fa-check-square-o"></i>&nbsp;
+                Confirm Delete</button>
+            <a style="text-decoration: none;" role="button" href="~/Admin/InventoryManagement" class="btn btn-primary">Cancel</a>
+            </div>
+          </div>
+         }
+
+    }
+    </div>
+   
+</div>

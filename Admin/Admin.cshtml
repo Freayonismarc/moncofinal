@@ -1,0 +1,325 @@
+﻿@{
+    Layout = "~/_AdminLayout.cshtml";
+    Page.Title = "Dashboard";
+
+    /* Open database connection */
+    var db = Database.Open("tierone");
+
+    /*  Showing quick orders into quick view panel 
+     *  1-Pending Payment: Customer just order the product/s, admin has the command to approved this if paid
+     *  2-Paid: Customer paid the amount of orders, but not yet delivered
+     *  3-Shipped: Paid and Already delivered, this will deduct to the current inventory of products
+     */
+
+    var AllOrdersNoLimit = db.Query("SELECT * FROM Orders");
+    var AllOrders = db.Query("SELECT TOP 5 * FROM Orders ORDER BY OrderDate DESC");
+    var NewOrders = db.Query("SELECT * FROM Orders WHERE IsPaid=0 AND HasBeenShipped=0");
+    var PaidOrders = db.Query("SELECT * FROM Orders WHERE IsPaid=1 AND HasBeenShipped=0");
+    var DeliveredOrders = db.Query("SELECT * FROM Orders WHERE IsPaid=1 AND HasBeenShipped=1");
+    var TotalSales = db.QueryValue("SELECT SUM(Total) FROM Orders WHERE IsPaid=1");
+    var AvgTotalSales = db.QueryValue("SELECT AVG(Total) FROM Orders WHERE IsPaid=1");
+
+    DateTime lastWeek =  DateTime.Now;
+    lastWeek = lastWeek.AddDays(-7);
+    /* Select unpaid orders for a week or so we treat it as inactive orders */
+    var InActiveOrders = db.QueryValue("SELECT COUNT(*) FROM Orders WHERE IsPaid=0 AND OrderDate < @0", lastWeek);
+    //var matchFound = (DateTime.Now - orderDate).TotalDays > 7; // Check OrderDate if exceeds to 7 days
+
+    /*  Showing popular products
+     *  1-Popular items is categories by four:
+     *      1.1-BySeach: When user search for speficic keyword of the product 10% impact
+     *      1.2-ByCart: When user add-to-cart this product 15%
+     *      1.3-ByCheckout: When user checkout this product by means of completion 60%
+     *      1.4-ByView: When user simply view the product 15%
+     *  ToDo's: Create an algo that will compute process the above mention criteria 
+     */
+     
+     /* Show data for the past number of days */
+     DateTime popularityPeriod = DateTime.Now;
+     popularityPeriod = popularityPeriod.AddDays(-7);
+     var AllPopularLog = db.Query("SELECT TOP 5 COUNT(*) as presentTotal, ProductId FROM popular_log WHERE Date > @0 GROUP BY ProductId ORDER BY presentTotal DESC", popularityPeriod);
+
+}
+
+<div class="row">
+    <div class="col-sm-12">
+    </div>
+    <!-- /.col-lg-12 -->
+</div>
+<!-- /.row -->
+
+
+<div class="row">
+        <div class="col-sm-5 animated fadeInDown">
+            <div class="panel panel-default">
+
+                <div class="panel-heading">
+                    <h4>
+                        Lifetime Sales
+                        <!--<i class="fa fa-chevron-right fa-fw pull-right"></i>-->
+                    </h4>
+                </div>
+                <!-- /.panel-heading -->
+
+                <div class="panel-body">
+                    <div class="table-responsive text-center">
+                        <h3>@string.Format("Php "+"{0:n}" , TotalSales)</h3>
+                    </div>
+                    <!-- /.table-responsive -->
+                </div>
+                <!-- /.panel-body -->
+            </div>
+            <!-- /.panel -->
+
+            <div class="panel panel-default">
+
+                <div class="panel-heading">
+                    <h4>
+                        Average Sales
+                        <!--<i class="fa fa-chevron-right fa-fw pull-right"></i>-->
+                    </h4>
+                </div>
+                <!-- /.panel-heading -->
+
+                <div class="panel-body">
+                    <div class="table-responsive text-center">
+                        <h3>@string.Format("Php "+"{0:n}", AvgTotalSales)</h3>
+                    </div>
+                    <!-- /.table-responsive -->
+                </div>
+                <!-- /.panel-body -->
+            </div>
+            <!-- /.panel -->
+
+            <div class="panel panel-default">
+
+                <div class="panel-heading">
+                    <h4>
+                        Top Products
+                        <!--<i class="fa fa-chevron-right fa-fw pull-right"></i>-->
+                    </h4>
+                </div>
+                <!-- /.panel-heading -->
+
+                <div class="panel-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th><i class="fa fa-caret-right fa-fw"></i>Product</th>
+                                    <th><i class="fa fa-caret-right fa-fw"></i>Hits</th>
+                                    <th><i class="fa fa-caret-right fa-fw"></i>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            @if (AllPopularLog.Count() > 0) {
+                                foreach(var row in AllPopularLog) {
+                                    /* Get Product Name */
+                                    var ProductName = db.QueryValue("SELECT Name FROM Products WHERE id=@0", row.ProductId);
+
+                                    /* Handles long product name and display it nicely without cutting the text */
+                                    string productName = ProductName;
+
+                                    if (productName.Length > 30) {
+                                        productName = productName.Substring(0, 30);
+                                        int index = productName.LastIndexOf(' ');
+                                        productName = productName.Substring(0, index) + "...";
+                                    }
+
+                                    /***/
+                                    /***/
+                                    /* Total of product inventory that is sold */
+                                    var soldInventory = @"SELECT SUM(Order_Details.Quantity) FROM Order_Details
+                                    INNER JOIN Orders
+                                    ON Orders.OrderId = Order_Details.OrderId
+                                    WHERE Order_Details.ProductId=@0
+                                    AND Orders.IsPaid=1";
+                                                
+                                    /* Total of product inventory */
+                                    var currentInventory = @"SELECT SUM(Products_Inventory.Quantity) FROM Products_Inventory WHERE ProductId=@0";
+
+                                    var sold_inventory = db.QueryValue(soldInventory, row.ProductId);
+                                    var current_inventory = db.QueryValue(currentInventory, row.ProductId);
+                                    int total_inventory;
+
+                                    if (DBNull.Value.Equals(sold_inventory)) { sold_inventory = 0; }
+                                    if (DBNull.Value.Equals(current_inventory)) { current_inventory = 0; }
+                                    total_inventory = Convert.ToInt32(current_inventory) - Convert.ToInt32(sold_inventory);
+
+                                    /* Get the inventory of each product */
+                                    var productInventory = db.QueryValue("SELECT SUM(Quantity) FROM Products_Inventory WHERE ProductId=@0", row.ProductId);
+                                                
+                                    /***/
+                                    /***/
+
+                                    /* Getting the percentage is increase compared to current data */
+                                    // Note: There is no need to multiple the result to 100 to get the percentage we do this later in String.Format
+                                    var previousTotal = db.QueryValue("SELECT COUNT(*) FROM popular_log WHERE Date < @0 AND ProductId=@1", popularityPeriod, row.ProductId);
+                                    decimal percentageIncrease;
+                                    if (previousTotal == 0) {
+                                        percentageIncrease = (row.presentTotal - Convert.ToDecimal(previousTotal)) / Convert.ToDecimal(row.presentTotal);
+                                    } else {
+                                        percentageIncrease = (row.presentTotal - Convert.ToDecimal(previousTotal)) / Convert.ToDecimal(previousTotal);
+                                    }
+                                     
+                                <tr>
+                                    <td>@productName</td>
+                                    <td class="text-right">@row.presentTotal</td>
+                                     <td>
+                                        @if (DBNull.Value.Equals(productInventory)) {
+                                            <span class="label label-danger">No Stock</span>
+                                        } 
+                                        else if(total_inventory <= 0) {
+                                            <span class="label label-danger">Sold out</span>
+                                        } 
+                                        else {
+                                            <span class="label label-primary">on sale</span>
+                                        }
+
+                                        @if (previousTotal > row.presentTotal) {
+                                            <span class="text-danger" data-toggle="tooltip" data-placement="bottom" data-original-title="Popularity decrease"><i class="fa fa-caret-down fw"></i>&nbsp;<small>@String.Format("{0:P1}", percentageIncrease)</small></span> 
+                                        }
+                                        else {
+                                            <span class="text-success" data-toggle="tooltip" data-placement="bottom" data-original-title="Popularity increase"><i class="fa fa-caret-up fw"></i>&nbsp;<small>@String.Format("{0:P1}", percentageIncrease)</small></span>
+                                        }
+                                    </td>
+                                </tr>
+                                }
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                    <!-- /.table-responsive -->
+                </div>
+                <!-- /.panel-body -->
+            </div>
+            <!-- /.panel -->
+        </div>
+        <!-- /.col-sm-5 -->
+
+        <div class="col-sm-7 animated fadeInDown">
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <h4>Last 5 Orders
+                        <a href="~/Admin/OrderManagement?ViewAll=true" class="pull-right">View All <i class="fa fa-chevron-right fa-fw pull-right"></i></a>
+                    </h4>
+                </div>
+                <!-- /.panel-heading -->
+
+                <div class="panel-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th><i class="fa fa-caret-right fa-fw"></i>Status</th>
+                                    <th><i class="fa fa-caret-right fa-fw"></i>Product</th>
+                                    <th><i class="fa fa-caret-right fa-fw"></i>Customer</th>
+                                    <th class="text-right"><i class="fa fa-caret-right fa-fw"></i>Grand total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            @foreach(var row in AllOrders) {
+                                <tr>
+                                    <td>
+                                    @{
+                                        /* NewOrders */
+                                        if (!row.IsPaid && !row.HasBeenShipped) {
+                                            <span class="label label-default">New</span>
+                                        }
+                                        /* Paid Undelivered Orders */
+                                        if (row.IsPaid && !row.HasBeenShipped) {
+                                            <span class="label label-success">Paid</span>
+                                        }
+                                        /* Paid & Delivered Orders */
+                                        if (row.IsPaid && row.HasBeenShipped) {
+                                            <span class="label label-primary">Delivered</span>
+                                        }
+                                    }
+                                    </td>
+
+                                    <td>
+                                    @{var OrdersProductName = db.Query(@"SELECT Products.Name as ProductName FROM Products INNER JOIN Order_Details ON Products.Id = Order_Details.ProductId WHERE Order_Details.OrderId=@0", row.OrderId);
+                                          if (OrdersProductName.Count > 1) {
+
+                                              var x = 0;
+
+                                              foreach(var row_x in OrdersProductName) {
+
+                                                // Handles long product name and display it nicely without cutting the text
+                                                string productName = row_x.ProductName;
+
+                                                if (productName.Length > 30) {
+                                                    productName = productName.Substring(0, 30);
+                                                    int index = productName.LastIndexOf(' ');
+                                                    productName = productName.Substring(0, index) + "...";
+                                                }
+                                                
+                                                if (x == 1) {
+                                                <span>@productName</span>
+                                                }
+                                                x++;
+                                              }   
+                                              
+                                              if (x == 1) {
+                                                <sup class="text-muted">and @x other</sup>
+                                              }
+                                              if (x >= 2) {
+                                                <sup class="text-muted">and @x other</sup>
+                                              }
+                                                                                       
+                                          } else {
+                                              foreach(var row_x in OrdersProductName) {
+
+                                                // Handles long product name and display it nicely without cutting the text
+                                                string productName = row_x.ProductName;
+
+                                                if (productName.Length > 30) {
+                                                    productName = productName.Substring(0, 30);
+                                                    int index = productName.LastIndexOf(' ');
+                                                    productName = productName.Substring(0, index) + "...";
+                                                }
+
+                                                  <span title="@row_x.ProductName">@productName</span>
+                                              }
+                                          }
+                                      }
+                                    </td>
+
+                                    <td>
+                                        @db.QueryValue("SELECT Concat(FirstName,' ',LastName) FROM UserProfile WHERE UserId=@0", row.Userid)
+                                    </td>
+
+                                    <td class="text-right">
+                                        @string.Format("Php "+"{0:n}", row.Total)
+                                    </td>
+                                </tr>
+                             }
+                             </tbody>
+                        </table>
+                    </div>
+                    <!-- /.table-responsive -->
+                </div>
+                <!-- /.panel-body -->
+
+                <div class="panel-footer">
+                    <div class="text-left">                        
+                    <span class="label label-warning">All: <span class="timer" data-from="0" data-to="@AllOrdersNoLimit.Count()" data-speed="1000"></span></span>
+                    <span class="label label-danger">Inactive: <span class="timer" data-from="0" data-to="@InActiveOrders" data-speed="1000"></span></span>
+                    <span class="label label-default">New: <span class="timer" data-from="0" data-to="@NewOrders.Count()" data-speed="1000"></span></span>
+                    <span class="label label-success">Paid: <span class="timer" data-from="0" data-to="@PaidOrders.Count()" data-speed="1000"></span></span>
+                    <span class="label label-primary">Delivered: <span class="timer" data-from="0" data-to="@DeliveredOrders.Count()" data-speed="1000"></span></span>
+                    </div>
+                </div>
+                <!-- /.panel-footer -->
+
+            </div>
+            <!-- /.panel -->
+        </div>
+        <!-- /.col-sm-7 -->
+</div>
+
+<script>
+    $(function () {
+        app.timer();
+    });
+</script>

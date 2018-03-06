@@ -1,0 +1,86 @@
+﻿@{
+    Page.Title = "Purchase Completed";
+
+    @* If cart's cookie still exist redirect the user this page expect that the user has already completed his checkout. *@
+    if(Request.Cookies["cart"] != null) {
+
+        @* Before redirecting remove cookie *@
+        Response.Cookies["cart"].Expires = DateTime.Now.AddDays(-1D);
+
+        Response.Redirect("~/");
+    }
+
+    var db = Database.Open("tierone");
+    bool paidwithCard = false;
+
+    @* No cart's cookie exist now validate requested string *@
+    try {
+        
+        var status = Request.QueryString["status"].AsBool();
+        paidwithCard = Request.QueryString["__CP"].AsBool();
+        var transactionId = Request.QueryString["__TID"].ToString();
+        
+        var verifyQueryString = db.Query("SELECT * FROM Orders WHERE PaymentTransactionId=@0 AND UserId=@1", transactionId, WebSecurity.CurrentUserId);
+
+        if (verifyQueryString.Count() != 1 || !status) {
+
+            Response.Redirect("~/");
+
+        }
+    }
+    catch(Exception e) {
+
+        @* Unauthorized access redirect to default page *@
+        Response.Redirect("~/");
+
+    }
+
+}
+
+<hgroup class="title">
+    <h2>Thank you for your purchase!</h2>
+</hgroup>
+
+<div class="row">
+
+    <div class="col-md-7">
+    
+@{
+        
+    if(paidwithCard) {
+        
+        <div class="alert alert-info">
+            <i class="fa fa-thumbs-o-up"></i>&nbsp; You can come back again!
+        </div>
+
+    } 
+    else {
+
+        <div class="alert alert-info">
+            <i class="fa fa-info-circle"></i>&nbsp;Note our <strong>Bank Details</strong> and make a <strong>Deposit</strong> to complete our transaction.
+        </div>
+
+        <table class="table">
+            <tbody>
+                <tr>
+                    <td>Account Name:</td> <td>Marc Rudolph Jacinto</td>
+                </tr>
+
+                <tr>
+                <td>Account Number (#):</td> <td>123456789</td>
+                </tr>
+
+                <tr>
+                    <td>Bank location (country/region):</td> <td>BDO waltermart sucat Dr. A. Santos Avenue</td>
+                </tr>
+
+            </tbody>
+        </table>
+
+    }
+}
+    </div>
+
+    <div class="col-md-*"></div>
+
+</div><!-- end of /.row -->

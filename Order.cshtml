@@ -1,0 +1,283 @@
+﻿@section Scripts {
+    <script src="~/Scripts/jquery.validate.min.js"></script>
+    <script src="~/Scripts/jquery.validate.unobtrusive.min.js"></script>
+}
+
+@{
+    Page.Title = "Place Your Order";
+
+    var db = Database.Open("tierone");
+    var productId = UrlData[0].AsInt();
+    var price = Request["price"].AsDecimal();
+    var quantity = Request["orderQty"].AsInt();
+    var commandText = string.Empty;
+    var cartId = 0;
+    var totalItems = 0;    
+    
+    commandText = "SELECT * FROM Products WHERE Id = @0";
+    var product = db.QuerySingle(commandText, productId);
+
+    // Product not exist in the database redirect to default page
+    if (product == null) { Response.Redirect("~/"); }
+
+    /* Add popularity log :: ByView */
+    db.Execute("INSERT INTO popular_log (ProductId, ByView, Date) VALUES (@0, @1, @2)", productId, 1, DateTime.Now);
+
+    var images = db.QuerySingle("SELECT FileTitle, FileExtension FROM Products_Image WHERE ForProductId=@0", product.Id); 
+    var categories = db.QuerySingle("SELECT * FROM Products_Category WHERE Id=@0", product.CategoryId);
+
+
+    /***/
+    /***/
+    /* Total of product inventory that is sold */
+    var soldInventory = @"SELECT SUM(Order_Details.Quantity) FROM Order_Details
+        INNER JOIN Orders
+        ON Orders.OrderId = Order_Details.OrderId
+        WHERE Order_Details.ProductId=@0
+        AND Orders.IsPaid=1";
+                                                
+    /* Total of product inventory */
+    var currentInventory = @"SELECT SUM(Products_Inventory.Quantity) FROM Products_Inventory WHERE ProductId=@0";
+    var sold_inventory = db.QueryValue(soldInventory, productId);
+    var current_inventory = db.QueryValue(currentInventory, productId);
+    int total_inventory;
+
+    if (DBNull.Value.Equals(sold_inventory)) { sold_inventory = 0; }
+    if (DBNull.Value.Equals(current_inventory)) { current_inventory = 0; }
+    total_inventory = Convert.ToInt32(current_inventory) - Convert.ToInt32(sold_inventory);
+    /***/
+    /***/
+
+
+    // Setup validation
+    Validation.RequireField("orderQty", "How many do you want to Order?");
+
+    if (IsPost) {
+    try{
+    AntiForgery.Validate();
+    }
+    catch(Exception e) {
+
+        Response.Redirect("~/Account/Login");
+
+    }
+
+    // When "cart" cookies does not exist
+    if(Request.Cookies["cart"] == null) {
+        
+        // Insert new cart info to database
+        commandText = "INSERT INTO Cart (DateCreated) VALUES (GetDate())";
+        db.Execute(commandText);
+        cartId = (int)db.GetLastInsertId();
+        
+        // Check if quantity of products to be added is less than or equal to available stock
+        if (quantity <= total_inventory) {
+            
+            // Now insert additional cart info to database
+            commandText = "INSERT INTO CartItems (CartId, ProductId, Quantity, Price) VALUES (@0, @1, @2, @3)";
+            db.Execute(commandText, cartId, productId, quantity, price);
+            
+            // Update user's cart count display
+            totalItems += quantity;
+
+        } else {
+
+            // Inform user that the quantity of products he set is too much compared to available stock
+            ModelState.AddFormError("Oopss! We cannot process your request please try it again...");
+
+        }
+
+    } else if(Request.Cookies["cart"] != null) { /* When "cart" cookies exist */
+        
+        // Setup cartId from cookies
+        cartId = Request.Cookies["cart"].Value.AsInt();
+
+        // Check for the product in cart database if exist
+        commandText = "SELECT SUM(Quantity) as Total FROM CartItems WHERE CartId=@0 AND ProductId=@1";
+        var checkItem = db.QuerySingle(commandText, cartId, productId);
+        
+        // Product found in the cart database
+        if(checkItem != null) {
+                        
+            // Now check it quantity of producs already in cert plus(+) quantity of added product is not higher than available stock
+            if ((Convert.ToInt32(checkItem.Total) + quantity) <= total_inventory) {
+                
+                // Now insert additional cart info to database
+                commandText = "INSERT INTO CartItems (CartId, ProductId, Quantity, Price) VALUES (@0, @1, @2, @3)";
+                db.Execute(commandText, cartId, productId, quantity, price);
+
+                // Update user's cart count display
+                totalItems += quantity;
+
+            } else {
+                // Inform user that the quantity of products he set is too much compared to available stock
+                ModelState.AddFormError("Oopss! We cannot process your request please try it again...");                
+            }
+
+        } else { /* Product is not in the cart */
+            
+            if ((Convert.ToInt32(checkItem.Total) + quantity) <= total_inventory) {
+                
+                /* Now insert additional cart info to database */
+                commandText = "INSERT INTO CartItems (CartId, ProductId, Quantity, Price) VALUES (@0, @1, @2, @3)";
+                db.Execute(commandText, cartId, productId, quantity, price);
+
+                /* Update user's cart count display */
+                totalItems += quantity;
+
+            } else {
+                /* Inform user that the quantity of products he set is too much compared to available stock */
+                ModelState.AddFormError("Oopss! We cannot process your request please try it again...");                
+            }
+        }
+    }
+
+        /* Initialize cookie value */
+        Response.Cookies["cart"].Value = cartId.ToString();
+        Response.Cookies["cart"].Expires = DateTime.Now.AddDays(7); // Set cookie to expire in 7 day
+
+    } /* end of IsPost checking */   
+}
+
+<div class="row">
+    <div class="col-md-12">
+        @Html.ValidationSummary(excludeFieldErrors: true)
+    </div>
+</div>
+
+<div class="row">
+
+    <div class="col-md-4">
+        <h1></h1>
+        <div class="row">
+          <div class="col-md-12">
+            <a class="image-popup-no-margins thumbnail" href="~/Uploaded/@images.FileTitle@images.FileExtension">
+                <img class="image-popup-no-margins" src="~/Uploaded/@images.FileTitle@images.FileExtension" alt="@images.FileTitle + @images.FileExtension" />
+            </a>
+          </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <h3>@product.Name <small>@categories.Name</small></h3>
+        <div class="">
+            <h4>Price: <strong class="text-danger">@String.Format("Php "+"{0:n}", product.Price)</strong></h4>
+            @{
+                if(total_inventory == null || total_inventory < 1) {
+                    <h4 class="text-danger">Out of stock.</h4>        
+                } else {
+                    <h4 class="text-success"><small class="text-muted">available: @total_inventory</small> In stock.</h4>
+                }
+            }            
+        </div>
+        
+        <ul class="orderPageList" data-role="listview">
+            <li>
+                <div class="text-justify">
+                    <p class="description">@product.Description</p>
+                </div>                
+            </li>
+        </ul>
+    </div>
+
+    <div class="col-md-2">
+        <h1></h1>
+        <form class="form-horizontal" method="post" role="form">
+            @{if(WebSecurity.IsAuthenticated && !Roles.IsUserInRole("admin")){
+              @AntiForgery.GetHtml()
+
+            <div class="form-group">
+                <label class="col-sm-5 control-label">Quantity</label>
+                <div class="col-sm-7">
+                <input type="text" class="form-control" id="orderQty" min="1" max="@total_inventory" name="orderQty" pattern="{4}" value="@(quantity == 0 ? 1 : quantity)"/>
+                </div>
+                <div class="col-sm-12">
+                    <small class="text-danger">
+                    @Html.ValidationMessage("orderQty")
+                    </small>
+                </div>
+            </div>
+
+            <!-- This field is use to compute client-side pricing, remain hidden -->
+            <div class="form-group" hidden>
+                    Current: ($)<span id="orderPrice">@string.Format("{0:f}", product.Price)</span>
+            </div>
+
+            <div class="form-group">
+                    <div class="col-sm-12">
+                    Total:<span class="pull-right" id="orderTotal">@string.Format("{0:f}", quantity == 0 ? product.Price : quantity * product.Price)</span>
+                    </div>
+            </div>}}
+            
+            <div class="form-group">
+                <div class="col-sm-12">
+                    <input type="hidden" name="productId" value="@product.Id" />
+                    <input type="hidden" name="price" value="@product.Price" />
+                    
+                        @{if(total_inventory == null || total_inventory < 1) {
+                            <h4 class="text-danger">We are already out of stock, kindly contact us to inform that you are interested in this product.</h4>
+                        } else {
+                            <button type="submit" class="btn btn-default btn-block"><i class="fa fa-shopping-cart fa-lg"></i> &nbsp;Add to Cart</button>
+                        }
+                        }
+                </div>
+
+            </div> 
+
+            <div class="form-group">
+                <div class="col-sm-12">
+                    @if(totalItems > 0){
+                        var itemtxt = (totalItems == 1) ? "item" : "items" ;
+                        <text><strong>@totalItems</strong> @itemtxt added to cart.</text>
+                    }
+                </div>
+            </div>
+        
+        </form>
+    </div>
+    @{if(WebSecurity.IsAuthenticated && !Roles.IsUserInRole("admin")){
+    <form action="https://www.sandbox.paypal.com/cgi-bin/webscr" method="post" target="paypal">
+
+    <input type="hidden" name="cmd" value="_cart">
+    <input type="hidden" name="add" value="1">
+
+    <input type="hidden" name="business" value="thisismonco@yourdomain.com">
+    <input type="hidden" name="item_name" value="Niagara">
+
+    <input type="hidden" name="amount" value="1.00">
+    <input type="hidden" name="shopping_url" 
+           value="http://localhost:23050/">
+
+    <input type="hidden" name="return" value="http://localhost:23050/">
+    <input type="hidden" name="cancel_return" value="http://localhost:23050/">
+
+    <div class="button" align="right"> Use Paypal!
+    <input type="hidden" name="bn" value="PP-ShopCartBF:x-click-but22.gif:NonHosted">
+    <input type="image" src="https://www.paypal.com/en_US/i/btn/x-click-but22.gif" border="0"
+
+        name="submit" alt="Make payments with PayPal - it's fast, free and secure!">
+    <img alt="" border="0" src="https://www.paypal.com/en_US/i/scr/pixel.gif" width="1"
+
+        height="1">
+    </div>
+</form>}}
+</div> <!-- end of main row -->
+
+<script type="text/javascript">
+    $(function () {
+        var price = parseFloat($("#orderPrice").text()).toFixed(2),
+            total = $("#orderTotal"),
+            orderQty = $("#orderQty");
+
+        orderQty.on('change', function () {
+            var quantity = parseInt(orderQty.val());
+            if (!quantity || quantity < 1) {
+                orderQty.val(1);
+                quantity = 1;
+            } else if (quantity.toString() !== orderQty.val()) {
+                orderQty.val(quantity);
+            }
+            total.text('$' + (price * quantity).toFixed(2));
+        });
+    });
+</script>

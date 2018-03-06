@@ -1,0 +1,647 @@
+﻿@* Remove this section if you are using bundling *@
+@section Scripts {
+    <script src="~/Scripts/jquery.validate.min.js"></script>
+    <script src="~/Scripts/jquery.validate.unobtrusive.min.js"></script>
+    <script src="~/Scripts/countries.js"></script>
+    <script src="~/Scripts/jquery.datePicker.js"></script>
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.11.4/themes/smoothness/jquery-ui.css">
+  <script src="//code.jquery.com/jquery-1.10.2.js"></script>
+  <script src="//code.jquery.com/ui/1.11.4/jquery-ui.js"></script>
+    <script>
+        $(function()
+        {
+            $("#datepicker").datepicker({ changeMonth: true, changeYear: true });
+
+        })
+    </script>
+
+    <script>
+        $(document).ready(function () {
+            var animateClass = 'animated fadeInDown';
+
+            setTimeout(function () {
+                $('div .panel:eq(0)').addClass(animateClass);
+            }, 100);
+            setTimeout(function () {                
+                $('div .panel:eq(1)').addClass(animateClass);
+            }, 300);
+            setTimeout(function () {
+                $('div .panel:eq(2)').addClass(animateClass);
+            }, 500);
+
+            $("#accordion").on('shown.bs.collapse', function () {
+                //$.cookie('accordion', 'the_value', { expires: 1, path: '/' });
+            });
+        });
+    </script>
+}
+
+@{
+    WebSecurity.RequireAuthenticatedUser();
+
+    Layout = "~/_SiteLayout.cshtml";
+    Page.Title = "Manage Account";
+
+    var action = Request.Form["action"];
+
+    // Use by checkoutcart redirect to alert the user to set and address
+    var aAddress = Convert.ToBoolean(Request.QueryString["SetAnAddress"]);
+    bool alertAddress = aAddress;
+
+    var db = Database.Open("tierone");
+
+    // Initialize variables for user profile update operation
+    var fullname = "";
+    var lastname = "";
+    var gender = "";
+    System.Data.SqlTypes.SqlDateTime birthdate;
+    birthdate = Convert.ToDateTime("0001-01-01");
+
+    // Initialize variasble for user address update operation
+    var country = "";
+    var address = "";
+    var address2 = "";
+    var state = "";
+    var postalcode = "";
+    var contactnumber = "";
+
+    bool hasLocalAccount = OAuthWebSecurity.HasLocalAccount(WebSecurity.CurrentUserId);
+
+    // Query for current user profile info then display in the follow fields
+    if (hasLocalAccount) {
+        var queryUserProfile = "SELECT * FROM UserProfile WHERE UserId=@0";
+        var UserProfile = db.QuerySingle(queryUserProfile, WebSecurity.CurrentUserId);        
+
+        fullname = UserProfile.FirstName;
+        lastname = UserProfile.LastName;
+        gender = UserProfile.Gender;
+        birthdate = Convert.ToDateTime(UserProfile.BirthDate);
+
+        country = UserProfile.Country;
+        address = UserProfile.Address;
+        address2 = UserProfile.Address2;
+        state = UserProfile.City;
+        postalcode = UserProfile.PostalCode;
+        contactnumber = UserProfile.ContactNumber;
+    }
+
+    string successMessage = String.Empty;
+    string errorMessage = String.Empty;
+
+    var message = Request.QueryString["message"];
+
+    if (message == "ChangedPassword") {
+        successMessage = "Password change success.";
+    } else if (message == "SetPassword") {
+        successMessage = "Setting password completed.";
+    } else if (message == "RemovedLogin") {
+        successMessage = "The external login was removed.";
+    } else if (message == "ChangePasswordFailed") {
+        errorMessage = "Password change failed.";
+    } else if (message == "UpdatedProfile") {
+        successMessage = "Profile update success.";
+    } else if (message == "UpdateProfileFailed") {
+        errorMessage = "Profile update failed, please try it again.";
+    } else if (message == "UpdatedAddress") {
+        successMessage = "Address info update success.";
+    } else if (message == "UpdatedAddressFailed") {
+        errorMessage = "Address update failed, please try it again.";
+    }
+
+    var externalLogins =
+        (from account in OAuthWebSecurity.GetAccountsFromUserName(WebSecurity.CurrentUserName)
+         let clientData = OAuthWebSecurity.GetOAuthClientData(account.Provider)
+         select new { Provider = account.Provider, ProviderDisplayName = clientData.DisplayName, UserId = account.ProviderUserId })
+        .ToList();
+    bool canRemoveLogin = externalLogins.Count > 1 || hasLocalAccount;
+
+    if (IsPost) {
+
+    if(action == "profile") {
+    /* SETUP VALIDATION FOR: Profile info change */
+            Validation.RequireField("fullname", "Providing a name is not that hard.");
+            Validation.RequireField("lastname", "Providing a name is not that hard.");
+            Validation.RequireField("gender", "Please specifiy your gender.");
+            Validation.Add("gender", 
+            Validator.StringLength(
+                maxLength: 1,
+                minLength: 1,
+                errorMessage: "You got a problem with your gender option"));
+    /* SETUP VALIDATION FOR: Profile info change (end) */
+    }
+
+    if(action == "address") {
+    /* SETUP VALIDATION FOR: Address info change */
+            Validation.RequireField("country", "Please specifiy your country");
+            Validation.RequireField("state", "Where do you live?");
+            Validation.RequireField("address", "We need this to know where to ship a when you purchase");
+            Validation.RequireField("postalcode", "This is also required");
+            Validation.RequireField("contactnumber", "Most importantly give us a way to contact you");
+    /* SETUP VALIDATION FOR: Address info change (end) */
+    }
+
+    if(action == "password") {
+    /* SETUP VALIDATION FOR: Password Change */
+            Validation.RequireField("currentPassword", "The current password field is required.");
+            Validation.Add("currentPassword",
+            Validator.StringLength(
+                maxLength: Int32.MaxValue,
+                minLength: 6,
+                errorMessage: "Current password must be at least 6 characters"));
+            Validation.RequireField("newPassword", "The new password field is required.");
+            Validation.Add("confirmPassword",
+            Validator.Required("The confirm new password field is required."),
+            Validator.EqualsTo("newPassword", "The new password and confirmation password do not match."));
+            Validation.Add("newPassword",
+            Validator.StringLength(
+                maxLength: Int32.MaxValue,
+                minLength: 6,
+                errorMessage: "New password must be at least 6 characters"));
+    /* SETUP VALIDATION FOR: Password Change (end) */
+    }
+    
+
+        AntiForgery.Validate();
+
+        if (action == "profile") {
+
+            // Handle user profile update operations
+            
+            fullname = Request.Form["fullname"];
+            lastname = Request.Form["lastname"];
+            gender = Request.Form["gender"];
+            birthdate = Convert.ToDateTime(Request.Form["birthdate"]);
+            int updateId = WebSecurity.CurrentUserId;
+
+            if (Validation.IsValid()) {
+
+                // Check if the current user is in the database
+                var checkUpdateId = db.Query("SELECT * FROM UserProfile WHERE UserId=@0", updateId);
+
+                if(checkUpdateId.Count() == 1) {
+
+                    var commandText = "UPDATE UserProfile SET FirstName=@0, LastName=@1, Gender=@2, BirthDate=@3 WHERE UserId=@4";
+                    db.Execute(commandText, fullname, lastname, gender, birthdate, updateId);
+
+                    /* acitivity logging */
+                    db.Execute("INSERT INTO activity_log (UserId, Action, Details, Date) VALUES (@0, @1, @2, @3)", WebSecurity.CurrentUserId, "Update", "Successfully updated Profile Information", DateTime.Now);
+
+                    Response.Redirect("~/Account/Manage?message=UpdatedProfile");
+                    return;   
+
+                } else {
+
+                    /* acitivity logging */
+                    db.Execute("INSERT INTO activity_log (UserId, Action, Details, Date) VALUES (@0, @1, @2, @3)", WebSecurity.CurrentUserId, "Update", "Failed to update Profile Information", DateTime.Now);
+
+                    // Add error if userId is not found
+                    Response.Redirect("~/Account/Manage?message=UpdateProfileFailed");
+                    return;   
+                }
+
+            } else {
+
+                    /* acitivity logging */
+                    db.Execute("INSERT INTO activity_log (UserId, Action, Details, Date) VALUES (@0, @1, @2, @3)", WebSecurity.CurrentUserId, "Update", "Failed to update Profile Information", DateTime.Now);
+                    // Add error if userId is not found
+                    Response.Redirect("~/Account/Manage?message=UpdateProfileFailed");
+                    return;   
+
+            }
+
+        } else if (action == "address") {
+            
+            // Handle local account address operations
+
+            country = Request.Form["country"];
+            address = Request.Form["address"];
+            address2 = Request.Form["address2"];
+            state = Request.Form["state"];
+            postalcode = Request.Form["postalcode"];
+            contactnumber = Request.Form["contactnumber"];
+            int updateId = WebSecurity.CurrentUserId;
+
+            if (Validation.IsValid()) {
+
+                // Check if the current user is in the database
+                var checkUpdateId = db.Query("SELECT * FROM UserProfile WHERE UserId=@0", updateId);
+                
+                if(checkUpdateId.Count() == 1) {
+                    
+                    var commandText = "UPDATE UserProfile SET Address=@0, Address2=@1, City=@2, PostalCode=@3, Country=@4, ContactNumber=@5 WHERE UserId=@6";
+                    db.Execute(commandText, address, address2, state, postalcode, country, contactnumber, updateId);
+
+                    /* acitivity logging */
+                    db.Execute("INSERT INTO activity_log (UserId, Action, Details, Date) VALUES (@0, @1, @2, @3)", WebSecurity.CurrentUserId, "Update", "Successfully updated Address Information", DateTime.Now);
+
+                    Response.Redirect("~/Account/Manage?message=UpdatedAddress");
+                    return;
+                    
+                } else {
+                        
+                    /* acitivity logging */
+                    db.Execute("INSERT INTO activity_log (UserId, Action, Details, Date) VALUES (@0, @1, @2, @3)", WebSecurity.CurrentUserId, "Update", "Failed to update Address Information", DateTime.Now);
+
+                    // Add error if userId is not found
+                    Response.Redirect("~/Account/Manage?message=UpdatedAddressFailed");
+                    return;   
+                }
+                
+            } else {
+
+                    /* acitivity logging */
+                    db.Execute("INSERT INTO activity_log (UserId, Action, Details, Date) VALUES (@0, @1, @2, @3)", WebSecurity.CurrentUserId, "Update", "Failed to update Address Information", DateTime.Now);
+                    
+                    // Add error if userId is not found
+                    Response.Redirect("~/Account/Manage?message=UpdatedAddressFailed");
+                    return;   
+
+            }
+
+        } else if (action == "password") {
+            
+            // Handle local account password operations
+
+            var currentPassword = Request.Form["currentPassword"];
+            var newPassword = Request.Form["newPassword"];
+            var confirmPassword = Request.Form["confirmPassword"];
+
+            if (Validation.IsValid()) {
+
+                if (hasLocalAccount) {
+
+                    if (WebSecurity.ChangePassword(WebSecurity.CurrentUserName, currentPassword, newPassword)) {
+
+                        /* acitivity logging */
+                        db.Execute("INSERT INTO activity_log (UserId, Action, Details, Date) VALUES (@0, @1, @2, @3)", WebSecurity.CurrentUserId, "Update", "Successfully updated Password Information", DateTime.Now);
+
+                        Response.Redirect("~/Account/Manage?message=ChangedPassword");
+                        return;
+
+                    } else {
+
+                        /* acitivity logging */
+                        db.Execute("INSERT INTO activity_log (UserId, Action, Details, Date) VALUES (@0, @1, @2, @3)", WebSecurity.CurrentUserId, "Update", "Failed to update Password Information", DateTime.Now);
+                        
+                        Response.Redirect("~/Account/Manage?message=ChangePasswordFailed");
+                        return;
+                    }
+
+                } else {
+
+                    bool requireEmailConfirmation = !WebMail.SmtpServer.IsEmpty();
+
+                    try {
+
+                        WebSecurity.CreateAccount(WebSecurity.CurrentUserName, newPassword, requireEmailConfirmation);
+                        Response.Redirect("~/Account/Manage?message=SetPassword");
+                        return;
+
+                    } catch (System.Web.Security.MembershipCreateUserException e) {
+
+                        ModelState.AddFormError(e.Message);
+
+                    }
+                }
+
+            } else {
+
+                /* acitivity logging */
+                db.Execute("INSERT INTO activity_log (UserId, Action, Details, Date) VALUES (@0, @1, @2, @3)", WebSecurity.CurrentUserId, "Update", "Failed to update Password Information", DateTime.Now);
+
+                Response.Redirect("~/Account/Manage?message=ChangePasswordFailed");
+
+            }
+
+        } else if (action == "removeLogin") {
+
+            // Remove external login
+            var provider = Request.Form["provider"];
+            var userId = Request.Form["userId"];
+
+            message = null;
+            var ownerAccount = OAuthWebSecurity.GetUserName(provider, userId);
+            
+            // Only remove the external login if it is owned by the currently logged in user and it is not the users last login credential
+            if (ownerAccount == WebSecurity.CurrentUserName && canRemoveLogin) {
+            
+                OAuthWebSecurity.DeleteAccount(provider, userId);
+                message = "RemovedLogin";
+            
+            }
+            
+            Response.Redirect(Href("~/Account/Manage", new { message }));
+            return;
+
+        } else {
+
+            // Assume this an external login request
+            string provider = Request.Form["provider"];
+            if (!provider.IsEmpty()) {
+
+                OAuthWebSecurity.RequestAuthentication(provider, Href("~/Account/RegisterService", new { returnUrl = Href("~/Account/Manage") }));
+                return;
+
+            }
+
+        }
+
+    } // if of post checking
+}
+
+<hgroup class="title">
+    <h1>@Page.Title</h1>
+</hgroup>
+
+<div class="row">
+    <div class="col-md-12">
+        @Html.ValidationSummary(excludeFieldErrors: true)
+    </div>
+</div>
+
+@if (!successMessage.IsEmpty()) {
+    /* Sucess/Positive Message Appear Here */
+    <div class="alert alert-success">
+        <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
+        <i class="fa fa-check-square-o fa-lg"></i>&nbsp;@successMessage
+    </div>
+}
+
+<p>You're logged in as: <strong>@WebSecurity.CurrentUserName</strong></p>
+
+@if (!errorMessage.IsEmpty()) {
+    /* Failed Message Appear Here */
+    <div class="alert alert-danger">
+        <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
+        <i class="fa fa-exclamation-triangle fa-lg"></i>&nbsp;@errorMessage
+    </div>
+}
+
+@if (hasLocalAccount) {
+    /* Display something if user has local password */
+} else {
+    <div class="alert alert-danger">
+        <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
+        <i class="fa fa-exclamation-triangle fa-lg"></i>&nbsp;<strong>IMPORTANT:</strong> Set your Password before doing anytime.
+    </div>
+}
+
+<div class="panel-group" id="accordion">
+
+    <div class="panel panel-default">
+    <div class="panel-heading">
+      <h4 class="panel-title">
+        <a data-toggle="collapse" data-parent="#accordion" href="#collapseThree">
+            <!-- Header Text -->
+            Personal Information
+        </a>
+      </h4>
+    </div>
+        <div id="collapseThree" class="panel-collapse collapse">
+            <div class="panel-body">
+                <form method="post" class="form-horizontal">
+                @AntiForgery.GetHtml()
+                    <div class="form-group">
+                        <label class="col-sm-3 control-label">First Name:</label>
+                        <div class="col-sm-4">
+                            <input type="text" class="form-control" name="fullname" value="@fullname" @Validation.For("fullname") />
+                            @Html.ValidationMessage("fullname")
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="col-sm-3 control-label">Last Name:</label>
+                        <div class="col-sm-4">
+                            <input type="text" class="form-control" name="lastname" value="@lastname"  @Validation.For("lastname") />
+                            @Html.ValidationMessage("lastname")
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="col-sm-3 control-label">Gender:</label>
+                        <div class="col-sm-4">
+                            <div class="btn-group" data-toggle="buttons">
+                              <label class="btn btn-default @if(gender == "M"){<text>active</text>}">
+                                <input type="radio" name="gender" value="M" required @if(gender == "M"){<text>checked</text>} /> Male
+                              </label>
+                              <label class="btn btn-default @if(gender == "F"){<text>active</text>}">
+                                <input type="radio" name="gender" value="F" required @if(gender == "F"){<text>checked</text>} /> Female
+                              </label>
+                            </div>
+                            <br/>@Html.ValidationMessage("gender")
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="col-sm-3 control-label">Birthdate:</label>
+                        <div class="col-sm-4">
+                        <input type="text" class="form-control" id="datepicker" value="@{ @birthdate.ToString("yyyy-MM-dd") if(birthdate.ToString("yyyy-MM-dd") == "0001-01-01") { <text>YYYY-MM-DD</text> } }"  />
+                            @Html.ValidationMessage("birthdate")
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="col-sm-3 control-label">Email:</label>
+                        <div class="col-sm-4">
+                            <p class="form-control-static">@WebSecurity.CurrentUserName</p>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <div class="col-sm-3"></div>
+                        <div class="col-sm-4">
+                            <button type="submit" class="btn btn-default" name="action" value="profile"><i class="fa fa-check-square-o"></i>&nbsp;Save Changes</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="panel panel-default">
+    <div class="panel-heading">
+      <h4 class="panel-title">
+        @if(alertAddress){<i class="fa fa-exclamation-triangle text-danger"></i>}
+        <a data-toggle="collapse" data-parent="#accordion" href="#collapseTwo">
+            <!-- Header Text -->
+            Residential Address
+        </a>
+      </h4>
+    </div>
+        <div id="collapseTwo" class="panel-collapse collapse @if (alertAddress){<text>in</text>} ">
+            <div class="panel-body">
+                <form method="post" class="form-horizontal">
+                    @AntiForgery.GetHtml()
+                    <div class="form-group">
+                        <label class="control-label col-sm-3">Select Country:</label>
+                        <div class="col-sm-4">
+                            @if(!country.IsEmpty()) {
+
+                                <p class="form-control-static">@country <a href="#" id="wreck-it" >Change</a> </p>
+
+                                <div id="lick-it"><input type="hidden" name="country" value="@country" /></div>
+
+                                <script>
+                                    $(function() {
+                                        $("#wreck-it").click(function(e) {
+                                            
+                                            $(this).parent('p').remove();
+                                            $('#lick-it').html('<select class="form-control animated fadeInUp" id="country" name="country"></select>');
+                                            
+                                            populateCountries('country');
+                                        });
+                                    });
+                                </script>
+                            } else {
+                                <select class="form-control" id="country" name="country" @Validation.For("country")></select>
+                                <script>
+                                    $(function() {
+                                        populateCountries("country"); 
+                                    });
+                                </script>
+                            }
+                            <!-- Keep this javascript next to country & state selection -->
+                            @Html.ValidationMessage("country")
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="control-label col-sm-3">Street Address:</label>
+                        <div class="col-sm-4">
+                            <input type="text" class="form-control" name="address" value="@address" @Validation.For("address") />
+                            @Html.ValidationMessage("address")
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="control-label col-sm-3">Street Address 2:</label>
+                        <div class="col-sm-4">
+                            <input type="text" class="form-control" name="address2" value="@address2" @Validation.For("address2") />
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="control-label col-sm-3">Select City:</label>
+                        <div class="col-sm-4">
+                            <input type="text" class="form-control" name="state" value="@state" @Validation.For("state") />
+                            @Html.ValidationMessage("state")
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="control-label col-sm-3">Postal Code:</label>
+                        <div class="col-sm-4">
+                            <input type="number" class="form-control" name="postalcode" value="@postalcode" @Validation.For("postalcode") />
+                            @Html.ValidationMessage("postalcode")
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="control-label col-sm-3">Contact Number:</label>
+                        <div class="col-sm-4">
+                            <input type="number" class="form-control" name="contactnumber" value="@contactnumber" @Validation.For("contactnumber") />
+                            @Html.ValidationMessage("contactnumber")
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <span class="col-sm-3"></span>
+                        <div class="col-sm-4">
+                            <button type="submit" class="btn btn-default" name="action" value="address"><i class="fa fa-check-square-o"></i>&nbsp;Save Changes</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="panel panel-default">
+    <div class="panel-heading">
+      <h4 class="panel-title">
+        <a data-toggle="collapse" data-parent="#accordion" href="#collapseOne">
+            <!-- Header Text -->
+            @if (hasLocalAccount) {
+                <text>Change Password Form</text>
+            } else {
+                <text>Set Password Form</text>
+            }
+        </a>
+      </h4>
+    </div>
+        <div id="collapseOne" class="panel-collapse collapse">
+            <div class="panel-body">
+                <form method="post" class="form-horizontal">
+                    @AntiForgery.GetHtml()
+                    <fieldset>        
+                            @if (hasLocalAccount) {
+                            <div class="form-group @if (!ModelState.IsValidField("currentPassword")) {<text>has-error has-feedback</text>}">
+                                <label for="confirmPassword" class="col-sm-3 control-label">Current password:</label>
+                                    <div class="col-sm-4">
+                                    <input type="password" class="form-control" id="currentPassword" name="currentPassword" @Validation.For("currentPassword")/>
+                                    @Html.ValidationMessage("currentPassword")
+                                    </div>
+                                </div>
+                            }
+                            <div class="form-group @if (!ModelState.IsValidField("newPassword")) {<text>has-error has-feedback</text>}">
+                                <label for="confirmPassword" class="col-sm-3 control-label">New password:</label>
+                                <div class="col-sm-4">
+                                <input type="password" class="form-control" id="newPassword" name="newPassword" @Validation.For("newPassword")/>
+                                @Html.ValidationMessage("newPassword")
+                                </div>
+                            </div>
+
+                            <div class="form-group @if (!ModelState.IsValidField("confirmPassword")) {<text>has-error has-feedback</text>}">
+                                <label for="confirmPassword" class="col-sm-3 control-label">Confirm new password:</label>
+                                <div class="col-sm-4">
+                                <input type="password" class="form-control" id="confirmPassword" name="confirmPassword" @Validation.For("confirmPassword")/>
+                                @Html.ValidationMessage("confirmPassword")
+                                </div>
+                            </div>
+        
+                            <div class="form-group">
+                                <div class="col-sm-3"></div>
+                                <div class="col-sm-4">
+                                @if (hasLocalAccount) {
+                                    <button type="submit" class="btn btn-default" name="action" value="password"><i class="fa fa-check-square-o"></i>&nbsp;Change Password</button>
+                                } else {
+                                    <button type="submit" class="btn btn-default" name="action" value="password"><i class="fa fa-check-square-o"></i>&nbsp;Set Password</button>
+                                }
+                                </div>
+                            </div>
+                    </fieldset>
+                </form>
+                </div> <!-- /.panel-body -->
+            </div> <!-- /. panel-collapse -->
+        </div> <!-- /.panel panel-default -->
+</div> <!-- /.panel-group -->
+
+@if (externalLogins.Count > 0) {
+<section id="externalLogins" class="well">
+        <h4>Registered external logins</h4>
+        <table class="table table-condensed table-hover">
+            <tbody>
+            @foreach (var externalLogin in externalLogins) {
+                <tr>
+                    <td class="col-sm-2">
+                        @if (canRemoveLogin) {
+                            <form method="post" class="form-horizontal">
+                                @AntiForgery.GetHtml()
+                                <button type="submit" class="btn btn-danger btn-block" name="action" value="removeLogin" title="Remove @externalLogin.ProviderDisplayName credential from your account"><i class="fa fa-minus-circle fa-lg"></i>&nbsp;Cancel Credentials</button>
+                                <input type="hidden" name="provider" value="@externalLogin.Provider" />
+                                <input type="hidden" name="userId" value="@externalLogin.UserId" />
+                            </form>
+                        } else {
+                            @: &nbsp;
+                        }
+                    </td>
+                    <td class="col-sm-10">
+                        <div class="form-group has-success has-feedback">
+                          <input class="form-control" value="@externalLogin.ProviderDisplayName" readonly="readonly" />
+                        </div>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+</section>
+}
